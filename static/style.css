@@ -1,0 +1,84 @@
+/* Search page
+*/
+
+.app-header {
+    text-align: center;
+    /* Center everything inside the header */
+    margin: 20px auto;
+}
+
+.app-name {
+    font-family: 'Inter', Arial, sans-serif;
+    /* Modern font */
+    font-size: 3rem;
+    /* Large font for the application name */
+    font-weight: 700;
+    /* Bold for prominence */
+    color: #333333;
+    /* Neutral dark gray for readability */
+    margin: 0;
+    /* Remove default margin */
+    text-transform: uppercase;
+    /* Optional: make the name uppercase for impact */
+    letter-spacing: 0.1rem;
+    /* Slight spacing for elegance */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    /* Subtle shadow for depth */
+}
+
+.app-description {
+    font-family: 'Inter', Arial, sans-serif;
+    font-size: 1.2rem;
+    /* Smaller font for the description */
+    font-weight: 400;
+    /* Normal weight for readability */
+    color: #666666;
+    /* Softer gray for less emphasis */
+    line-height: 1.8;
+    /* Good line spacing for multi-line text */
+    max-width: 70%;
+    /* Restrict width for better readability */
+    margin: 10px auto 0;
+    /* Center align and add space above */
+}
+
+
+/* For gene table
+*/
+table.genetable {
+    white-space: nowrap;
+    table-layout: fixed;
+}
+
+table.genetable td {
+    position: relative;
+    /* Needed for absolute positioning of the menu */
+}
+
+table.genetable thead {
+    font-size: 1rem;
+    /* Keep headers at the normal size */
+}
+
+table.genetable tbody {
+    font-size: 0.8rem;
+    /* Slightly smaller for body text */
+}
+
+.menu {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 150px;
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+    padding: 12px 16px;
+    z-index: 1;
+}
+
+/* Header */
+.rotate-text {
+    writing-mode: vertical-lr;
+    transform: scale(-1, -1);
+    vertical-align: bottom;
+    text-align: left;
+}

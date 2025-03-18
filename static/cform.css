@@ -1,0 +1,92 @@
+/* 
+  Header of forms
+*/
+.gtable-header {
+    height: 20%;
+    /* Optional: set header height */
+    background-color: #f1f1f1;
+    /* Optional background for visualization */
+}
+
+.combined-forms {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px; /* Space between columns */
+    margin: 16px 0; /* Optional margin for spacing */
+}
+
+.form-row {
+    display: flex;
+    margin-bottom: 16px;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.form-column {
+    flex: 1;
+    /* Equal width for all columns */
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    /* Optional background for visibility */
+}
+
+
+/*
+  Collapsible elements
+*/
+.collapsible {
+    max-width: 80%;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+}
+
+.collapse-header {
+    background-color: #e5e7eb;
+    padding: 8px;
+    cursor: pointer;
+    border: 1px solid #d1d5db;
+    display: flex;
+    align-items: center;
+    user-select: none;
+    width: fit-content;
+    min-width: 30%;
+}
+
+.collapse-header:hover {
+    background-color: #f3f4f6;
+}
+
+.collapse-content {
+    border: 1px solid #d1d5db;
+    border-top: none;
+    padding: 16px;
+    background-color: #f9fafb;
+    display: none;
+    /* Start with being collapse */
+    position: absolute;
+    /* Go over other element */
+    z-index: 10;
+    /* Place the content above the table */
+    max-width: 100%;
+    /* Prevent it from exceeding the container width */
+}
+
+/* Add rotating '►' */
+.collapse-header::before {
+    content: '►';
+    display: inline-block;
+    margin-right: 8px;
+    transition: transform 0.2s;
+}
+
+/* Add rotating '►' */
+.collapse-header.active::before {
+    transform: rotate(90deg);
+}
+
+.collapse-content.active {
+    display: block;
+}
