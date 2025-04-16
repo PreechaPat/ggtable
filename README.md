@@ -1,6 +1,6 @@
-# Genome Table v.3.0
+# Genome Table v.3
 
-Genome Table v.3.0 is a complete rewrite of the P. Insidiosum genome database (v.2) designed for robust gene content comparison and comprehensive phylogenetic analysis. This version addresses previous scalability and accessibility limitations by incorporating key enhancements and enabling local deployment.
+Genome Table v.3 is a complete rewrite of the P. Insidiosum genome database (v.2) designed for robust gene content comparison and comprehensive phylogenetic analysis. This version addresses previous scalability and accessibility limitations by incorporating key enhancements and enabling local deployment.
 
 ## Key Features
 
