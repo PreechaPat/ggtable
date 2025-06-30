@@ -4,8 +4,9 @@ Genome Table v.3 is a complete rewrite of the P. Insidiosum genome database (v.2
 
 ## Key Features
 
-- **Improved Performance:** Built with Golang and SQLite to ensure seamless integration and prevent performance degradation.
-- **Local Deployment:** Open-source and comes with a Docker image, allowing researchers to deploy and run the platform locally without reliance on external servers. **Gene Content Comparison Tools:** Includes BLAS, Heatmap, and Query Table functionalities to facilitate in-depth bioinformatics analyses.
+- **Improved Performance:** Develop in  Golang with SQLite backend for speed and efficiency.
+- **Local Deployment:** Fully open-source and Dockerized, enabling easy local usage without depending on external servers.
+- **Gene Content Analysis Tools:** BLAST, Heatmap Viewer, Query table
 
 ## Repository Contents
 
@@ -18,40 +19,40 @@ Genome Table v.3 is a complete rewrite of the P. Insidiosum genome database (v.2
 ### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) installed on your system.
-- [Golang](https://golang.org/dl/) (if you wish to build or modify the source code directly).
-- [SQLite](https://www.sqlite.org/index.html) (included in the Docker container for database operations).
 
-### Installation & Setup
+### Installation
 
-1. **Clone the Repository:**
+You can run Genome Table v3.0 in two ways:
+
+1. **Use prebuit Docker image**
 
    ```bash
-   git clone https://github.com/yourusername/genome-table.git
-   cd genome-table
+     docker run -p 8080:8080 \
+       --mount type=bind,source="$(pwd)/data,target=/data" \
+       preechapat/ggtable:3.0.0-dev
    ```
+   Access the web app at: localhost:8080.
 
-2. **Using Docker:**
+2. **Building docker image from source**
 
-Build and run the Docker container:
    ```bash
-   docker build -t genome-table .
-   docker run -p 8080:8080 genome-table
-   ```
-
-3. **Local Setup Without Docker (Optional):**
-   ```bash
-   go build -o genome-table
-   ./genome-table
+   git clone https://github.com/PreechaPat/ggtable
+   cd ggtable
+   docker build . -t preechapat/ggtable:3.0.0-dev
+   docker run -p 8080:8080 \
+     --mount type=bind,source="$(pwd)/data,target=/data" \
+     preechapat/ggtable:3.0.0-dev
    ```
 
 ## Usage
-Soon
+
+After running the container (via either method), the application will be accessible on http://localhost:8080.
 
 ## Contributing
-Soon
+Contributions are welcome! Guidelines and instructions will be added soon.
 
 ## License
 This project is licensed under the MIT License. See the LICENSE file for details.
 
 ## Contact
-For any questions or support, please open an issue in the repository or contact the project maintainer at your.email@example.com.
+For any questions or support, please open an issue or contact the project maintainer at preecha.pat@mahidol.ac.th.
