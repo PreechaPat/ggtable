@@ -207,7 +207,6 @@ func TestQuery(t *testing.T) {
 	}
 	defer db.Close()
 
-	// GENOME_ID_SMALL := []string{"CBS57885", "CBS57785", "CAO", "EQ10", "CBS57385m"}
 	GENOME_ID_ALL := ALL_GENOME_ID
 
 	// GENOME_ID_VALIDATION

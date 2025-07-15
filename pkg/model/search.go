@@ -360,6 +360,9 @@ func getAllClusters(db *sql.DB, searchParams types.SearchRequest) ([]*ClusterQue
 
 	stm, err := db.PrepareContext(ctx, qstring)
 	if err != nil {
+		logger.Error("Failed to prepare SQL statement",
+			zap.Error(err),
+			zap.String("query", qstring)) // Log the full query string
 		return nil, err
 	}
 	defer stm.Close()
@@ -370,6 +373,11 @@ func getAllClusters(db *sql.DB, searchParams types.SearchRequest) ([]*ClusterQue
 	offset := (page - 1) * page_size
 	rows, err := stm.QueryContext(ctx, limit, offset)
 	if err != nil {
+		logger.Error("Failed to execute SQL query",
+			zap.Error(err),
+			zap.String("query", qstring), // Log the full query string again
+			zap.Int("limit", limit),      // Log the parameters used
+			zap.Int("offset", offset))
 		return nil, err
 	}
 	defer rows.Close()
@@ -386,6 +394,13 @@ func getAllClusters(db *sql.DB, searchParams types.SearchRequest) ([]*ClusterQue
 			&cluster.completeness, &cluster.start_location, &cluster.end_location, &cluster.gene_description,
 		)
 		if err != nil {
+			logger.Error("Failed to scan row into ClusterQuery struct",
+				zap.Error(err),
+				zap.String("query", qstring), // Log the query to know which query it was
+				zap.Any("current_row_data_attempt", map[string]interface{}{ // Attempt to log current row data (might be tricky for Scan errors, but useful for context)
+					"limit":  limit,
+					"offset": offset,
+				}))
 			return nil, err
 		}
 

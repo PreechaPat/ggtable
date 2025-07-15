@@ -46,17 +46,17 @@ func (seqdb *SequenceDB) Init() error {
 
 func (seqdb *SequenceDB) getConcatAllGeneNucl() string {
 
-	return path.Join(seqdb.Dir, "concat_sequences", "all_genes.fna.gz")
+	return path.Join(seqdb.Dir, "concat_sequences", "genetable_genes.fna.gz")
 }
 
 func (seqdb *SequenceDB) getConcatAllGeneProt() string {
 
-	return path.Join(seqdb.Dir, "concat_sequences", "all_genes.faa.gz")
+	return path.Join(seqdb.Dir, "concat_sequences", "genetable_genes.faa.gz")
 }
 
 func (seqdb *SequenceDB) getConcatContigNucl() string {
 
-	return path.Join(seqdb.Dir, "concat_sequences", "all_contigs.fna.gz")
+	return path.Join(seqdb.Dir, "concat_sequences", "genetable_genomes.fna.gz")
 }
 
 func (seqdb *SequenceDB) GetGeneSequence(req types.GeneRequest) ([]byte, error) {

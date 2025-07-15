@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"mime"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/yumyai/ggtable/logger"
 	mydb "github.com/yumyai/ggtable/pkg/db"
 	"github.com/yumyai/ggtable/pkg/handler"
+	"github.com/yumyai/ggtable/pkg/model"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -27,12 +29,28 @@ var (
 func main() {
 
 	// Establish logger
+	verbose := flag.Bool("v", false, "Enable verbose (debug) logging") // Define the -v flag
+	PIVER := flag.Bool("p", false, "Manually sorted")                  // Define the -v flag
+
+	// Parse the command-line arguments
+	flag.Parse()
+
+	// Initialize logger with default values
 	VERSION := "0.0.3"
-	LOG_LEVEL := zapcore.InfoLevel
+	var LOG_LEVEL zapcore.Level
+
+	// Check if the -v flag was provided
+	if *verbose {
+		LOG_LEVEL = zapcore.DebugLevel
+	} else {
+		LOG_LEVEL = zapcore.InfoLevel
+	}
 
 	if err := logger.InitLogger(LOG_LEVEL); err != nil {
 		panic(err)
 	}
+
+	defer logger.Sync() // Make sure that the buffered is flushed.
 
 	// Try load env
 	dotenvErr := godotenv.Load()
@@ -41,8 +59,6 @@ func main() {
 		logger.Warn("No .env found, using local environment")
 	}
 
-	defer logger.Sync() // Make sure that the buffered is flushed.
-
 	ggtable_data = os.Getenv("GGTABLE_DATA")
 
 	if ggtable_data == "" {
@@ -50,13 +66,19 @@ func main() {
 		ggtable_data = "./data" // Replace "default_value" with your desired fallback value
 	}
 
+	// Check all required directories
 	ggtable_sqlite := path.Join(ggtable_data, "db/gene_table.db")
-	seq_db := path.Join(ggtable_data, "db/sequence_db")
-	prot_db := path.Join(ggtable_data, "db/blastdb/pythium_prot_v3")
-	nucl_db := path.Join(ggtable_data, "db/blastdb/pythium_nucl_v3")
+	prot_db := path.Join(ggtable_data, "db/blastdb/genetable_genes_prot")
+	nucl_db := path.Join(ggtable_data, "db/blastdb/genetable_genes_nucl")
+	seq_db := path.Join(ggtable_data, "db/sequence_db") // Concat sequence
 
 	// Connect to db
-	db, _ := sql.Open("sqlite", ggtable_sqlite)
+	db, conerr := sql.Open("sqlite", ggtable_sqlite)
+	if conerr != nil {
+		logger.Fatal("Cannot connect to database", zap.String("DB_LOC", ggtable_sqlite), zap.Error(conerr))
+	}
+
+	// Check the rest of the directories all at once instead of one by one then report
 
 	dbctx := &handler.DBContext{
 		DB:           db,
@@ -69,6 +91,17 @@ func main() {
 	logger.Info("Open database on", zap.String("DB_LOC", ggtable_sqlite))
 
 	mux := NewRouter(dbctx)
+
+	// Fetch a header that will be used in later modules
+	if err := model.InitMapHeader(db); err != nil {
+		logger.Fatal("Cannot init header", zap.String("MAP_HEADER", "THING"))
+	}
+
+	if PIVER != nil && *PIVER {
+		logger.Info("Using manually sorted HEADER")
+	} else {
+		logger.Info("Using default PIVER")
+	}
 
 	// Apply middleware
 	// m := middle.LoggingMiddleware(middle.CreateMiddlewareLogger(zapcore.DebugLevel))

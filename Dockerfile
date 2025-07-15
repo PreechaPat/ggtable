@@ -9,7 +9,7 @@ COPY static ./static
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ggtable .
 
 # Copy and run
-FROM debian:bookworm-slim AS PROD
+FROM debian:bookworm-slim AS prod
 
 # Prep the environment
 ENV GGTABLE_DATA=/data

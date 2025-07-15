@@ -186,23 +186,6 @@ func (dbctx *DBContext) GetSequenceByClusterIDHandler(w http.ResponseWriter, r *
 	}
 
 	// Search sequence
-
-	// Convert to fullname
-	// MAP, errgenome := model.GetGenomes(dbctx.DB)
-	// if errgenome != {
-	// 	response := SequenceReponse{
-	// 		Status:          "error",
-	// 		SequencePayload: "",
-	// 		Error:           "Internal error.",
-	// 	}
-
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	w.WriteHeader(400)
-	// 	json.NewEncoder(w).Encode(response)
-	// 	return
-	// }
-	// model.MAP_HEADER
-
 	fmt.Fprint(w, gene)
 
 	if !is_prot {

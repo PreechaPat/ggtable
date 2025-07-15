@@ -43,7 +43,7 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 	}
 
 	// RenderingPage
-	err3 := model.RenderClustersAsTable(w, []*model.Cluster{cluster_prob}, HEADER, 1, 1, 1)
+	err3 := model.RenderClustersAsTable(w, []*model.Cluster{cluster_prob}, model.ALL_GENOME_ID, 1, 1, 1)
 
 	if err3 != nil {
 		fmt.Fprint(w, "ERROR")

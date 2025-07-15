@@ -197,9 +197,9 @@ func init() {
 					{{range .AllGenomeIDs}}
 						{{ $key := . }} {{ $value := index $.GenomeNames $key }}
 						<label style="display: block; margin-bottom: 4px; font-size 0.8rem">
-                        	<input type="checkbox" class="genome-checkbox" name="gm_{{$key}}" value="y" checked="checked" />
-                        	{{$value}}
-                    	</label>
+							<input type="checkbox" class="genome-checkbox" name="gm_{{$key}}" value="y" checked="checked" />
+							{{$value}}
+						</label>
 					{{end}}
 				</div>
 			</div>
@@ -207,17 +207,20 @@ func init() {
 	{{end}}
 	`
 	filterByGene := `
-		{{define "filterByGene"}}
+	{{define "filterByGene"}}
 		<div class="collapsible">
 			<div class="collapse-header">
 				Show gene(s) only present in
 			</div>
 			<div class="collapse-content">
+				<div>
+					<button type="button" id="toggle-all-genes" style="margin-bottom: 8px;">Select/Deselect All</button>
+				</div>
 				<div class="stacked-checkboxes">
 					{{range .AllGenomeIDs}}
 						{{ $key := . }} {{ $value := index $.GenomeNames $key }}
 						<label style="display: block; margin-bottom: 4px; font-size 0.8rem">
-							<input type="checkbox" name="gn_{{$key}}" value="y" checked="checked" />
+							<input type="checkbox" class="gene-checkbox" name="gn_{{$key}}" value="y" checked="checked" />
 							{{$value}}
 						</label>
 					{{end}}

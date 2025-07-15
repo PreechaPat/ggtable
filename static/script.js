@@ -162,13 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 //
-//  // Load and save form
-//
-
-
-
-//
-// Individual form functionality.
+// Add toggle genomes button for select/deselect all genomes
 //
 document.addEventListener("DOMContentLoaded", function () {
     const toggleButton = document.getElementById("toggle-all-genomes");
@@ -179,8 +173,19 @@ document.addEventListener("DOMContentLoaded", function () {
         const anyUnchecked = Array.from(checkboxes).some(checkbox => !checkbox.checked);
 
         // Set all checkboxes to checked if any are unchecked, otherwise uncheck all
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = anyUnchecked;
-        });
+        checkboxes.forEach(checkbox => {checkbox.checked = anyUnchecked;});
     });
 });
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    // Gene toggle logic
+    const geneToggleButton = document.getElementById("toggle-all-genes");
+    const geneCheckboxes = document.querySelectorAll(".gene-checkbox");
+
+    geneToggleButton.addEventListener("click", function () {
+        const anyUnchecked = Array.from(geneCheckboxes).some(cb => !cb.checked);
+        geneCheckboxes.forEach(cb => {cb.checked = anyUnchecked;});
+    });
+});
+
