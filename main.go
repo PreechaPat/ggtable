@@ -52,7 +52,6 @@ func main() {
 
 	defer logger.Sync() // Make sure that the buffered is flushed.
 
-	// Try load env
 	dotenvErr := godotenv.Load()
 
 	if dotenvErr != nil {
@@ -98,9 +97,12 @@ func main() {
 	}
 
 	if PIVER != nil && *PIVER {
-		logger.Info("Using manually sorted HEADER")
+		logger.Info("Using manually sorted HEADER for pythium v.3")
 	} else {
-		logger.Info("Using default PIVER")
+		newE := model.InitGenomeID()
+		if newE != nil {
+			panic(newE)
+		}
 	}
 
 	// Apply middleware
@@ -148,7 +150,6 @@ func NewRouter(dbctx *handler.DBContext) *http.ServeMux {
 	// SPA
 	// Not working ATM.
 	// setupSPA(mux)
-
 	return mux
 }
 

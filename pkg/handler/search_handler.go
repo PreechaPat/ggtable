@@ -81,13 +81,13 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	}
 
 	// Only include those cluster with following genes
-	var geneIn []string
+	var reqGeneFromGenome []string
 	// Iterate over query parameters
 	for key := range r.URL.Query() {
 		if strings.HasPrefix(key, "gn_") {
 			// Strip "gn_" prefix and append to the array
 			strippedKey := strings.TrimPrefix(key, "gn_")
-			geneIn = append(geneIn, strippedKey)
+			reqGeneFromGenome = append(reqGeneFromGenome, strippedKey)
 		}
 	}
 
@@ -97,16 +97,17 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 		zap.Int("Pagesize", pageSize))
 
 	var search_request = types.SearchRequest{
-		Search_for:   searchTerm,
-		Search_field: searchBy,
-		Page:         currentPage,
-		Page_size:    pageSize,
-		GenomeIDs:    genomeIDs,
+		Search_for:              searchTerm,
+		Search_field:            searchBy,
+		Page:                    currentPage,
+		Page_size:               pageSize,
+		GenomeIDs:               genomeIDs,
+		RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 
 	rows, _ := model.SearchGeneCluster(dbctx.DB, search_request)
 	rowNum, _ := model.CountRowByQuery(dbctx.DB, search_request)
-	totalPageNum := (rowNum + pageSize - 1) / pageSize // To round it up instead
+	totalPageNum := (rowNum + pageSize - 1) / pageSize // Rounding up
 
 	err := model.RenderClustersAsTable(w, rows, genomeIDs, currentPage, totalPageNum, pageSize)
 

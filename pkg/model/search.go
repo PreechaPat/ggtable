@@ -89,19 +89,6 @@ func arrangeClusterData(clusterQueries []*ClusterQuery) []*Cluster {
 
 }
 
-// ADD THESE TO FILTER AND HAVE A PROPER PAGINATION
-// INNER JOIN gene_matches gm ON gc.cluster_id = gm.cluster_id
-// -- Join with region_matches if additional filtering is needed
-// INNER JOIN region_matches rm ON gc.cluster_id = rm.cluster_id
-
-// (
-//
-//		gm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
-//	  OR
-//		rm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
-//
-// )
-// AND
 func searchCluster(db *sql.DB, searchRequest types.SearchRequest) ([]*Cluster, error) {
 	ctx := context.TODO()
 
@@ -112,7 +99,7 @@ func searchCluster(db *sql.DB, searchRequest types.SearchRequest) ([]*Cluster, e
 			SELECT gc.cluster_id, gc.cog_id, gc.expected_length, gc.function_description, gc.representative_gene
 			FROM gene_clusters gc
 			-- Add filtering condition for cluster_id
-			WHERE 
+			WHERE
 			(
 			    {{WHERE_CLUSTER_FILTER}}
             )
@@ -173,7 +160,7 @@ func searchCluster(db *sql.DB, searchRequest types.SearchRequest) ([]*Cluster, e
 
 	// Queries
 	geneQuery := `
-		SELECT 
+		SELECT
 			gc.cluster_id, gc.cog_id, gc.expected_length, gc.function_description,
 			json_group_array(
 				json_object(
@@ -183,7 +170,7 @@ func searchCluster(db *sql.DB, searchRequest types.SearchRequest) ([]*Cluster, e
 					'region', json_object(
 						'genome_id', gm.genome_id,
 						'contig_id', gm.contig_id,
-						'start', gi.start_location, 
+						'start', gi.start_location,
 						'end', gi.end_location
 					)
 				)
@@ -196,7 +183,7 @@ func searchCluster(db *sql.DB, searchRequest types.SearchRequest) ([]*Cluster, e
 	`
 
 	regionQuery := `
-		SELECT 
+		SELECT
 			gc.cluster_id, gc.cog_id, gc.expected_length, gc.function_description,
 			json_group_array(
 				json_object(

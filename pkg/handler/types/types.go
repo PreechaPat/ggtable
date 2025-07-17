@@ -16,12 +16,14 @@ const (
 	SearchFieldClusterID SearchField = "cluster_id"
 )
 
+// Structure for querying
 type SearchRequest struct {
-	Search_for   string
-	Search_field string
-	Page         int
-	Page_size    int
-	GenomeIDs    []string
+	Search_for              string   `json:"search_for"`                 // Term or keyword to search
+	Search_field            string   `json:"search_field"`               // Field to search within (e.g., gene_symbol, description)
+	Page                    int      `json:"page"`                       // Page number for pagination (starting at 1)
+	Page_size               int      `json:"page_size"`                  // Number of results per page
+	GenomeIDs               []string `json:"genome_ids"`                 // Genome IDs to limit the search
+	RequireGenesFromGenomes []string `json:"require_genes_from_genomes"` // Filter: only include clusters with these genes from the specified genomes
 }
 
 type GeneRequest struct {
