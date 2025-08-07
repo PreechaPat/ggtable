@@ -23,7 +23,9 @@ import (
 )
 
 var (
-	ggtable_data string
+	ggtable_data     string
+	ggtable_title    string
+	ggtable_subtitle string
 )
 
 func main() {
@@ -62,6 +64,8 @@ func main() {
 	}
 
 	ggtable_data = os.Getenv("GGTABLE_DATA")
+	ggtable_title = os.Getenv("GGTITLE")
+	ggtable_subtitle = os.Getenv("GGSUBTITLE")
 
 	if ggtable_data == "" {
 		logger.Warn("No local environment (GGTABLE_DATA), using fallback value (./data)")
