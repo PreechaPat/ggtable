@@ -1,2 +1,5 @@
 tmp/
 ggtable
+bin/
+air.ml
+.vscode/

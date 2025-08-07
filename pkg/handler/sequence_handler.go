@@ -44,7 +44,7 @@ func (dbctx *DBContext) GetGeneSequenceHandler(w http.ResponseWriter, r *http.Re
 	respons, err := model.GetGeneSequence(dbctx.Sequence_DB, genome_gene_param)
 
 	if err != nil {
-		http.Error(w, "No", http.StatusBadRequest)
+		http.Error(w, "Not found (maybe Samtools isn't available?)", http.StatusBadRequest)
 
 	} else {
 		fmt.Fprint(w, respons)

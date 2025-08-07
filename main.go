@@ -30,7 +30,7 @@ func main() {
 
 	// Establish logger
 	verbose := flag.Bool("v", false, "Enable verbose (debug) logging") // Define the -v flag
-	PIVER := flag.Bool("p", false, "Manually sorted")                  // Define the -v flag
+	PIVER := flag.Bool("p", false, "Manually sorted")                  // Define the -p flag
 
 	// Parse the command-line arguments
 	flag.Parse()
@@ -52,16 +52,19 @@ func main() {
 
 	defer logger.Sync() // Make sure that the buffered is flushed.
 
+	//
+	// Get data from environments
+	//
 	dotenvErr := godotenv.Load()
 
 	if dotenvErr != nil {
-		logger.Warn("No .env found, using local environment")
+		logger.Warn("No .env found, try using local environment or default value")
 	}
 
 	ggtable_data = os.Getenv("GGTABLE_DATA")
 
 	if ggtable_data == "" {
-		logger.Warn("No local environment (GGTABLE_DATA), using default value (./data)")
+		logger.Warn("No local environment (GGTABLE_DATA), using fallback value (./data)")
 		ggtable_data = "./data" // Replace "default_value" with your desired fallback value
 	}
 
@@ -78,7 +81,6 @@ func main() {
 	}
 
 	// Check the rest of the directories all at once instead of one by one then report
-
 	dbctx := &handler.DBContext{
 		DB:           db,
 		Sequence_DB:  &mydb.SequenceDB{Dir: seq_db},
@@ -93,7 +95,7 @@ func main() {
 
 	// Fetch a header that will be used in later modules
 	if err := model.InitMapHeader(db); err != nil {
-		logger.Fatal("Cannot init header", zap.String("MAP_HEADER", "THING"))
+		logger.Fatal("Cannot init header", zap.String("MAP_HEADER_ERR", err.Error()))
 	}
 
 	if PIVER != nil && *PIVER {
