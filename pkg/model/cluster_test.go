@@ -21,7 +21,7 @@ func TestClusterQuery(t *testing.T) {
 
 	// Create a search request
 
-	r, err := searchCluster(db, types.SearchRequest{
+	r, err := searchCluster(db, types.ClusterSearchRequest{
 		Search_for:   "heat",
 		Search_field: "",
 		Page:         1,
@@ -46,7 +46,7 @@ func TestPivoting(t *testing.T) {
 
 	defer db.Close()
 
-	r, err := searchCluster(db, types.SearchRequest{
+	r, err := searchCluster(db, types.ClusterSearchRequest{
 		Search_for:   "heat",
 		Search_field: "function",
 		Page:         1,
@@ -72,7 +72,7 @@ func TestCountRow(t *testing.T) {
 
 	defer db.Close()
 
-	r, err := CountRowByQuery(db, types.SearchRequest{
+	r, err := CountRowByQuery(db, types.ClusterSearchRequest{
 		Search_for:   "heat",
 		Search_field: "",
 		Page:         1,

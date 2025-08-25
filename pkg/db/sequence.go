@@ -4,16 +4,15 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/fs"
+	"os"
 	"os/exec"
 	"path"
 
-	"github.com/yumyai/ggtable/internal/util"
 	"github.com/yumyai/ggtable/pkg/handler/types"
 )
 
 // Defining possible error
-var SequenceNotExists = errors.New("Something very specific happened!")
+var SequenceNotExists = errors.New("Sequence folder does not exists")
 
 type NoSequenceError struct {
 	Msg string // additional context for the error
@@ -28,20 +27,30 @@ type SequenceDB struct {
 	Dir string
 }
 
-// Self check when create
-func (seqdb *SequenceDB) Init() error {
-
-	if !util.DirExists(seqdb.Dir) {
-		return fmt.Errorf("%w: Base folder does not exists", fs.ErrNotExist)
+func NewSequenceDB(dir string) (*SequenceDB, error) {
+	required_folders := []string{
+		dir,
+		path.Join(dir, "concat_sequences"),
+		path.Join(dir, "concat_sequences", "genetable_genes.fna.gz"),
+		path.Join(dir, "concat_sequences", "genetable_genes.faa.gz"),
+		path.Join(dir, "concat_sequences", "genetable_genomes.fna.gz"),
 	}
 
-	if !util.DirExists(seqdb.Dir) {
-		return fmt.Errorf("%w: Sequences folder does not exists", fs.ErrNotExist)
+	var errs error
+
+	for _, folder := range required_folders {
+		if _, err := os.Stat(folder); os.IsNotExist(err) {
+			errs = fmt.Errorf("%w: %s", os.ErrNotExist, folder)
+		}
 	}
 
-	// TODO: Make further check
-
-	return nil
+	if errs != nil {
+		return nil, errs
+	} else {
+		return &SequenceDB{
+			Dir: dir,
+		}, nil
+	}
 }
 
 func (seqdb *SequenceDB) getConcatAllGeneNucl() string {
@@ -59,7 +68,7 @@ func (seqdb *SequenceDB) getConcatContigNucl() string {
 	return path.Join(seqdb.Dir, "concat_sequences", "genetable_genomes.fna.gz")
 }
 
-func (seqdb *SequenceDB) GetGeneSequence(req types.GeneRequest) ([]byte, error) {
+func (seqdb *SequenceDB) GetGeneSequence(req types.GeneGetRequest) ([]byte, error) {
 
 	genome_id := req.Genome_ID
 	contig_id := req.Contig_ID
@@ -89,7 +98,7 @@ func (seqdb *SequenceDB) GetGeneSequence(req types.GeneRequest) ([]byte, error) 
 	return output, nil
 }
 
-func (seqdb *SequenceDB) GetRegionSequence(req types.RegionRequest) ([]byte, error) {
+func (seqdb *SequenceDB) GetRegionSequence(req types.RegionGetRequest) ([]byte, error) {
 
 	// Use samtools to fetch data
 	// "KCB09|contig000007|KCB09_00064:50-100"
@@ -109,9 +118,8 @@ func (seqdb *SequenceDB) GetRegionSequence(req types.RegionRequest) ([]byte, err
 }
 
 // Retrieves gene sequences using Samtools faidx based on multiple gene requests.
-// TODO:
-//   - Consider preloading Samtools to improve responsiveness.
-func (seqdb *SequenceDB) GetMultipleGene(genereqs []*types.GeneRequest, is_prot bool) ([]byte, error) {
+// TODO: Consider preloading Samtools to improve responsiveness.
+func (seqdb *SequenceDB) GetMultipleGene(genereqs []*types.GeneGetRequest, is_prot bool) ([]byte, error) {
 
 	var geneInputBuffer bytes.Buffer
 	var all_gene_file string
@@ -145,7 +153,7 @@ func (seqdb *SequenceDB) GetMultipleGene(genereqs []*types.GeneRequest, is_prot 
 
 }
 
-func (seqdb *SequenceDB) GetMultipleRegion(regreqs []*types.RegionRequest) ([]byte, error) {
+func (seqdb *SequenceDB) GetMultipleRegion(regreqs []*types.RegionGetRequest) ([]byte, error) {
 
 	var contigInputBuffer bytes.Buffer
 

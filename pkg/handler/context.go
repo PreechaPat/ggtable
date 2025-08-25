@@ -5,12 +5,12 @@ package handler
 import (
 	"database/sql"
 
-	mydb "github.com/yumyai/ggtable/pkg/db"
+	ggdb "github.com/yumyai/ggtable/pkg/db"
 )
 
 type DBContext struct {
 	DB           *sql.DB
-	Sequence_DB  *mydb.SequenceDB
+	Sequence_DB  *ggdb.SequenceDB
 	ProtBLAST_DB string
 	NuclBLAST_DB string
 }

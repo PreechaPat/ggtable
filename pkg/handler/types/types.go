@@ -17,7 +17,7 @@ const (
 )
 
 // Structure for querying
-type SearchRequest struct {
+type ClusterSearchRequest struct {
 	Search_for              string   `json:"search_for"`                 // Term or keyword to search
 	Search_field            string   `json:"search_field"`               // Field to search within (e.g., gene_symbol, description)
 	Page                    int      `json:"page"`                       // Page number for pagination (starting at 1)
@@ -26,14 +26,14 @@ type SearchRequest struct {
 	RequireGenesFromGenomes []string `json:"require_genes_from_genomes"` // Filter: only include clusters with these genes from the specified genomes
 }
 
-type GeneRequest struct {
+type GeneGetRequest struct {
 	Genome_ID string `json:"genome_id"`
 	Contig_ID string `json:"contig_id"`
 	Gene_ID   string `json:"gene_id"`
 	Is_Prot   bool   `json:"is_prot"`
 }
 
-type RegionRequest struct {
+type RegionGetRequest struct {
 	Genome_ID string `json:"genome_id"`
 	Contig_ID string `json:"contig_id"`
 	Start     uint64 `json:"start"`
@@ -41,18 +41,8 @@ type RegionRequest struct {
 	Is_Prot   bool   `json:"is_prot"`
 }
 
-// type MultipleGenesRequest struct {
-// 	Request string        `json:"request"`
-// 	Payload []GeneRequest `json:"payload"`
-// }
-
-// type MultipleRegionsRequest struct {
-// 	Request string          `json:"request"`
-// 	Payload []RegionRequest `json:"payload"`
-// }
-
 // Method for samtools request
-func (g GeneRequest) String() string {
+func (g GeneGetRequest) String() string {
 	return fmt.Sprintf(
 		"%s|%s|%s",
 		g.Genome_ID, g.Contig_ID, g.Gene_ID,
@@ -60,7 +50,7 @@ func (g GeneRequest) String() string {
 }
 
 // String method for RegionRequest
-func (r RegionRequest) String() string {
+func (r RegionGetRequest) String() string {
 	return fmt.Sprintf(
 		"%s|%s:%d-%d",
 		r.Genome_ID, r.Contig_ID, r.Start, r.End,

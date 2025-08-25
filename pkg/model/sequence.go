@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	mydb "github.com/yumyai/ggtable/pkg/db"
+	ggdb "github.com/yumyai/ggtable/pkg/db"
 	"github.com/yumyai/ggtable/pkg/handler/types"
 )
 
@@ -49,7 +49,7 @@ func GetGenomes(db *sql.DB) (map[string]string, error) {
 	return results, nil
 }
 
-func GetGeneSequence(seqdb *mydb.SequenceDB, req types.GeneRequest) (string, error) {
+func GetGeneSequence(seqdb *ggdb.SequenceDB, req types.GeneGetRequest) (string, error) {
 
 	raw_response, err := seqdb.GetGeneSequence(req)
 
@@ -62,7 +62,7 @@ func GetGeneSequence(seqdb *mydb.SequenceDB, req types.GeneRequest) (string, err
 	return ret, nil
 }
 
-func GetRegionSequence(seqdb *mydb.SequenceDB, req types.RegionRequest) (string, error) {
+func GetRegionSequence(seqdb *ggdb.SequenceDB, req types.RegionGetRequest) (string, error) {
 
 	raw_response, err := seqdb.GetRegionSequence(req)
 
@@ -75,7 +75,7 @@ func GetRegionSequence(seqdb *mydb.SequenceDB, req types.RegionRequest) (string,
 	return ret, nil
 }
 
-func GetMultipleGenes(seqdb *mydb.SequenceDB, req []*types.GeneRequest, is_prot bool) (string, error) {
+func GetMultipleGenes(seqdb *ggdb.SequenceDB, req []*types.GeneGetRequest, is_prot bool) (string, error) {
 
 	raw_output, err := seqdb.GetMultipleGene(req, is_prot)
 
@@ -88,7 +88,7 @@ func GetMultipleGenes(seqdb *mydb.SequenceDB, req []*types.GeneRequest, is_prot 
 	return ret, nil
 }
 
-func GetMultipleRegions(seqdb *mydb.SequenceDB, req []*types.RegionRequest) (string, error) {
+func GetMultipleRegions(seqdb *ggdb.SequenceDB, req []*types.RegionGetRequest) (string, error) {
 
 	raw_output, err := seqdb.GetMultipleRegion(req)
 
@@ -134,7 +134,7 @@ func supplyFastaHeader(input []byte, genomeMap map[string]string) *bytes.Buffer 
 }
 
 // From genome + gene, return all cluster that match.
-func GetClusterID(db *sql.DB, gene_request types.GeneRequest) ([]string, error) {
+func GetClusterID(db *sql.DB, gene_request types.GeneGetRequest) ([]string, error) {
 
 	ctx := context.TODO()
 

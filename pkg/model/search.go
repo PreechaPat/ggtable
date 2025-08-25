@@ -90,7 +90,7 @@ func arrangeClusterData(clusterQueries []*ClusterQuery) []*Cluster {
 }
 
 // Main search function for cluster search
-func searchCluster(db *sql.DB, searchRequest types.SearchRequest) ([]*Cluster, error) {
+func searchCluster(db *sql.DB, searchRequest types.ClusterSearchRequest) ([]*Cluster, error) {
 	ctx := context.TODO()
 
 	// Create temporary tables for filtering
@@ -313,7 +313,7 @@ func searchCluster(db *sql.DB, searchRequest types.SearchRequest) ([]*Cluster, e
 }
 
 // Getting all available cluster
-func getAllClusters(db *sql.DB, searchParams types.SearchRequest) ([]*ClusterQuery, error) {
+func getAllClusters(db *sql.DB, searchParams types.ClusterSearchRequest) ([]*ClusterQuery, error) {
 
 	ctx := context.TODO()
 
@@ -400,7 +400,7 @@ func getAllClusters(db *sql.DB, searchParams types.SearchRequest) ([]*ClusterQue
 }
 
 // Use this to separate from the search function
-func GetMainPage(db *sql.DB, search_request types.SearchRequest) ([]*Cluster, error) {
+func GetMainPage(db *sql.DB, search_request types.ClusterSearchRequest) ([]*Cluster, error) {
 
 	gene_result, query_err := getAllClusters(db, search_request)
 
@@ -421,7 +421,7 @@ func GetMainPage(db *sql.DB, search_request types.SearchRequest) ([]*Cluster, er
 }
 
 // Search for gene cluster based on request
-func SearchGeneCluster(db *sql.DB, search_request types.SearchRequest) ([]*Cluster, error) {
+func SearchGeneCluster(db *sql.DB, search_request types.ClusterSearchRequest) ([]*Cluster, error) {
 
 	gene_result, query_err := searchCluster(db, search_request)
 
@@ -440,7 +440,7 @@ func SearchGeneCluster(db *sql.DB, search_request types.SearchRequest) ([]*Clust
 }
 
 // Count how many row this query will return. Use for calc the number of return page.
-func CountRowByQuery(db *sql.DB, searchRequest types.SearchRequest) (rownum int, err error) {
+func CountRowByQuery(db *sql.DB, searchRequest types.ClusterSearchRequest) (rownum int, err error) {
 
 	searchFor := searchRequest.Search_for
 
@@ -497,7 +497,7 @@ func CountRowByQuery(db *sql.DB, searchRequest types.SearchRequest) (rownum int,
 }
 
 // For search pages
-func GetAllClusters(db *sql.DB, search_request types.SearchRequest) ([]*Cluster, error) {
+func GetAllClusters(db *sql.DB, search_request types.ClusterSearchRequest) ([]*Cluster, error) {
 
 	gene_result, query_err := getAllClusters(db, search_request)
 

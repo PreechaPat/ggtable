@@ -15,7 +15,7 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 	genome := r.URL.Query().Get("genome_id")
 	gene := r.URL.Query().Get("gene_id")
 
-	genome_gene_param := types.GeneRequest{
+	genome_gene_param := types.GeneGetRequest{
 		Genome_ID: genome,
 		Gene_ID:   gene,
 	}

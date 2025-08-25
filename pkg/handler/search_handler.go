@@ -96,7 +96,7 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 		zap.String("url", r.URL.Path),
 		zap.Int("Pagesize", pageSize))
 
-	var search_request = types.SearchRequest{
+	var search_request = types.ClusterSearchRequest{
 		Search_for:              searchTerm,
 		Search_field:            searchBy,
 		Page:                    currentPage,
@@ -133,7 +133,7 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		zap.String("url", r.URL.Path),
 		zap.Int("page", pageNum))
 
-	var search_request = types.SearchRequest{
+	var search_request = types.ClusterSearchRequest{
 		Search_for:   "",
 		Search_field: "function",
 		Page:         pageNum,

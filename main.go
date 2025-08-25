@@ -15,7 +15,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/yumyai/ggtable/logger"
-	mydb "github.com/yumyai/ggtable/pkg/db"
+	ggdb "github.com/yumyai/ggtable/pkg/db"
 	"github.com/yumyai/ggtable/pkg/handler"
 	"github.com/yumyai/ggtable/pkg/model"
 	"go.uber.org/zap"
@@ -110,7 +110,7 @@ func run(cfg AppConfig) error {
 
 	dbctx := &handler.DBContext{
 		DB:           db,
-		Sequence_DB:  &mydb.SequenceDB{Dir: seqDB},
+		Sequence_DB:  &ggdb.SequenceDB{Dir: seqDB},
 		ProtBLAST_DB: protDB,
 		NuclBLAST_DB: nuclDB,
 	}

@@ -94,7 +94,7 @@ func (dbctx *DBContext) BlastNRedirectPage(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Create region request
-	req := types.RegionRequest{
+	req := types.RegionGetRequest{
 		Genome_ID: genome_id,
 		Contig_ID: contig_id,
 		Start:     start_loc,
@@ -132,8 +132,7 @@ func (dbctx *DBContext) BlastPRedirectPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Create gene request
-	req := types.GeneRequest{
+	req := types.GeneGetRequest{
 		Genome_ID: genome_id,
 		Contig_ID: contig_id,
 		Gene_ID:   gene_id,

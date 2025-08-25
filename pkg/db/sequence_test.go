@@ -45,7 +45,7 @@ func TestGetGeneSequence(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	req := types.GeneRequest{
+	req := types.GeneGetRequest{
 		Genome_ID: "KCB09",
 		Contig_ID: "contig000007",
 		Gene_ID:   "KCB09_00064",
@@ -67,7 +67,7 @@ func TestGetRegionSequence(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	req := types.RegionRequest{
+	req := types.RegionGetRequest{
 		Genome_ID: "KCB09",
 		Contig_ID: "contig000007",
 		Start:     1,
@@ -91,7 +91,7 @@ func TestGetmultipleGenes(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	gene_reqs := []*types.GeneRequest{
+	gene_reqs := []*types.GeneGetRequest{
 		{
 			Genome_ID: "KCB09",
 			Contig_ID: "contig000007",
@@ -122,15 +122,15 @@ func TestGetMultipleRegion(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	region_reqs := []*types.RegionRequest{
-		&types.RegionRequest{
+	region_reqs := []*types.RegionGetRequest{
+		&types.RegionGetRequest{
 			Genome_ID: "KCB09",
 			Contig_ID: "contig000007",
 			Start:     1,
 			End:       20,
 			Is_Prot:   false,
 		},
-		&types.RegionRequest{
+		&types.RegionGetRequest{
 			Genome_ID: "KCB09",
 			Contig_ID: "contig000017",
 			Start:     200,

@@ -1,3 +1,5 @@
+// Handler for miscellaneous endpoints such as health check
+
 package handler
 
 import (
