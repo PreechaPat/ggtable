@@ -89,10 +89,11 @@ func arrangeClusterData(clusterQueries []*ClusterQuery) []*Cluster {
 
 }
 
+// Main search function for cluster search
 func searchCluster(db *sql.DB, searchRequest types.SearchRequest) ([]*Cluster, error) {
 	ctx := context.TODO()
 
-	// Create temporary tables
+	// Create temporary tables for filtering
 	PREP := `
 		CREATE TEMPORARY TABLE temp_genome_ids (genome_id INTEGER);
 		CREATE TEMPORARY TABLE unique_clusters AS

@@ -3,12 +3,14 @@ package main
 import (
 	"database/sql"
 	"flag"
+	"fmt"
 	"mime"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/joho/godotenv"
 
@@ -28,98 +30,119 @@ var (
 	ggtable_subtitle string
 )
 
-func main() {
+// App configuration parsed from flags/env
+type AppConfig struct {
+	Version  string
+	DataDir  string // GGTABLE_DATA
+	Title    string // GGTITLE
+	Subtitle string // GGSUBTITLE
+	Addr     string // listen addr, default 0.0.0.0:8080
+	Verbose  bool   // -v
+	Sorted   string
+}
 
-	// Establish logger
-	verbose := flag.Bool("v", false, "Enable verbose (debug) logging") // Define the -v flag
-	PIVER := flag.Bool("p", false, "Manually sorted")                  // Define the -p flag
+// ParseConfig loads .env (if present), uses env as defaults, and then parses flags.
+func ParseConfig() AppConfig {
+	_ = godotenv.Load() // best-effort; env wins if present
 
-	// Parse the command-line arguments
+	cfg := AppConfig{
+		Version:  "0.0.3",
+		DataDir:  getenv("GGTABLE_DATA", "./data"),
+		Title:    getenv("GGTITLE", ""),
+		Subtitle: getenv("GGSUBTITLE", ""),
+		Addr:     getenv("GGTABLE_ADDR", "0.0.0.0:8080"),
+		Sorted:   getenv("GGSORTED", ""),
+	}
+
+	flag.BoolVar(&cfg.Verbose, "v", false, "Enable verbose (debug) logging")
+	flag.StringVar(&cfg.DataDir, "data", cfg.DataDir, "Path to data directory (default from $GGTABLE_DATA)")
+	flag.StringVar(&cfg.Title, "title", cfg.Title, "Application title (default from $GGTITLE)")
+	flag.StringVar(&cfg.Subtitle, "subtitle", cfg.Subtitle, "Application subtitle (default from $GGSUBTITLE)")
+	flag.StringVar(&cfg.Addr, "addr", cfg.Addr, "HTTP listen address")
+
 	flag.Parse()
+	return cfg
+}
 
-	// Initialize logger with default values
-	VERSION := "0.0.3"
-	var LOG_LEVEL zapcore.Level
+func main() {
+	cfg := ParseConfig()
 
-	// Check if the -v flag was provided
-	if *verbose {
-		LOG_LEVEL = zapcore.DebugLevel
-	} else {
-		LOG_LEVEL = zapcore.InfoLevel
+	// Optional: export flags back to env for downstream packages that read env
+	_ = os.Setenv("GGTABLE_DATA", cfg.DataDir)
+	_ = os.Setenv("GGTITLE", cfg.Title)
+	_ = os.Setenv("GGSUBTITLE", cfg.Subtitle)
+
+	if err := run(cfg); err != nil {
+		// If logger isn't up yet, print; else log and exit.
+		fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// run wires everything together using the parsed config.
+func run(cfg AppConfig) error {
+	// Logger
+	logLevel := zapcore.InfoLevel
+	if cfg.Verbose {
+		logLevel = zapcore.DebugLevel
+	}
+	if err := logger.InitLogger(logLevel); err != nil {
+		return err
+	}
+	defer logger.Sync()
+
+	// Data paths
+	if cfg.DataDir == "" {
+		logger.Warn("No data dir provided; falling back to ./data")
+		cfg.DataDir = "./data"
+	}
+	sqlitePath := path.Join(cfg.DataDir, "db/gene_table.db")
+	protDB := path.Join(cfg.DataDir, "db/blastdb/genetable_genes_prot")
+	nuclDB := path.Join(cfg.DataDir, "db/blastdb/genetable_genes_nucl")
+	seqDB := path.Join(cfg.DataDir, "db/sequence_db")
+
+	// DB connect
+	db, err := sql.Open("sqlite", sqlitePath)
+	if err != nil {
+		logger.Fatal("Cannot connect to database", zap.String("DB_LOC", sqlitePath), zap.Error(err))
+		return err
 	}
 
-	if err := logger.InitLogger(LOG_LEVEL); err != nil {
-		panic(err)
-	}
-
-	defer logger.Sync() // Make sure that the buffered is flushed.
-
-	//
-	// Get data from environments
-	//
-	dotenvErr := godotenv.Load()
-
-	if dotenvErr != nil {
-		logger.Warn("No .env found, try using local environment or default value")
-	}
-
-	ggtable_data = os.Getenv("GGTABLE_DATA")
-	ggtable_title = os.Getenv("GGTITLE")
-	ggtable_subtitle = os.Getenv("GGSUBTITLE")
-
-	if ggtable_data == "" {
-		logger.Warn("No local environment (GGTABLE_DATA), using fallback value (./data)")
-		ggtable_data = "./data" // Replace "default_value" with your desired fallback value
-	}
-
-	// Check all required directories
-	ggtable_sqlite := path.Join(ggtable_data, "db/gene_table.db")
-	prot_db := path.Join(ggtable_data, "db/blastdb/genetable_genes_prot")
-	nucl_db := path.Join(ggtable_data, "db/blastdb/genetable_genes_nucl")
-	seq_db := path.Join(ggtable_data, "db/sequence_db") // Concat sequence
-
-	// Connect to db
-	db, conerr := sql.Open("sqlite", ggtable_sqlite)
-	if conerr != nil {
-		logger.Fatal("Cannot connect to database", zap.String("DB_LOC", ggtable_sqlite), zap.Error(conerr))
-	}
-
-	// Check the rest of the directories all at once instead of one by one then report
 	dbctx := &handler.DBContext{
 		DB:           db,
-		Sequence_DB:  &mydb.SequenceDB{Dir: seq_db},
-		ProtBLAST_DB: prot_db,
-		NuclBLAST_DB: nucl_db,
+		Sequence_DB:  &mydb.SequenceDB{Dir: seqDB},
+		ProtBLAST_DB: protDB,
+		NuclBLAST_DB: nuclDB,
 	}
 
-	logger.Info("Start:", zap.String("Version", VERSION))
-	logger.Info("Open database on", zap.String("DB_LOC", ggtable_sqlite))
+	logger.Info("Start", zap.String("Version", cfg.Version))
+	logger.Info("Open database", zap.String("DB_LOC", sqlitePath))
+	if cfg.Title != "" {
+		logger.Info("App title", zap.String("title", cfg.Title), zap.String("subtitle", cfg.Subtitle))
+	}
 
+	// Router
 	mux := NewRouter(dbctx)
 
-	// Fetch a header that will be used in later modules
+	// Initialize header map from genome_id to full name
 	if err := model.InitMapHeader(db); err != nil {
 		logger.Fatal("Cannot init header", zap.String("MAP_HEADER_ERR", err.Error()))
+		return err
 	}
-
-	if PIVER != nil && *PIVER {
-		logger.Info("Using manually sorted HEADER for pythium v.3")
-	} else {
-		newE := model.InitGenomeID()
-		if newE != nil {
-			panic(newE)
-		}
+	if cfg.Sorted != "" {
+		// Split by comma
+		sortedIDs := []string{}
+		sortedIDs = append(sortedIDs, strings.Split(cfg.Sorted, ",")...)
+		model.SetGenomeID(sortedIDs)
+		logger.Info("Using manually sorted HEADER with length", zap.Int("len", len(sortedIDs)))
 	}
-
-	// Apply middleware
-	// m := middle.LoggingMiddleware(middle.CreateMiddlewareLogger(zapcore.DebugLevel))
-	// newmux := m(mux)
-
-	logger.Info("Server starting on :8080...")
-	httpErr := http.ListenAndServe("0.0.0.0:8080", mux)
-	if httpErr != nil {
-		logger.Error("Error starting server:", zap.String("error message", httpErr.Error()))
+	// Serve
+	logger.Info("Server starting", zap.String("addr", cfg.Addr))
+	if httpErr := http.ListenAndServe(cfg.Addr, mux); httpErr != nil {
+		logger.Error("Error starting server", zap.String("error", httpErr.Error()))
+		return httpErr
 	}
+	return nil
 }
 
 // Move to router.go in the next iteration
@@ -150,12 +173,10 @@ func NewRouter(dbctx *handler.DBContext) *http.ServeMux {
 	mux.HandleFunc("GET /sequence/by-region", dbctx.GetRegionSequenceHandler)
 	mux.HandleFunc("GET /sequence/by-cluster", dbctx.GetSequenceByClusterIDHandler)
 
-	// Static files
+	// Static
 	setupStaticFiles(mux)
+	// setupSPA(mux) // optional
 
-	// SPA
-	// Not working ATM.
-	// setupSPA(mux)
 	return mux
 }
 
@@ -165,10 +186,6 @@ func setupStaticFiles(mux *http.ServeMux) {
 	_ = mime.AddExtensionType(".css", "text/css")
 	fs := http.FileServer(http.Dir("./static/"))
 	mux.Handle("GET /static/", http.StripPrefix("/static/", fs))
-
-	// Additional route that also use it
-	// Maybe there will be a better way...
-	// mux.Handle("GET /cluster/static/", http.StripPrefix("/cluster/static/", fs))
 }
 
 func setupSPA(mux *http.ServeMux) {
@@ -186,4 +203,12 @@ func setupSPA(mux *http.ServeMux) {
 	logger.Info("Serving SPA from", zap.String("dir", distDir))
 	spa := http.FileServer(http.Dir(distDir))
 	mux.Handle("GET /v1/", http.StripPrefix("/v1/", spa))
+}
+
+// small helper
+func getenv(k, default_val string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return default_val
 }
