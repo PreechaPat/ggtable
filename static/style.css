@@ -65,6 +65,18 @@ table.genetable tbody {
     /* Slightly smaller for body text */
 }
 
+/* Fix the column to 500px across header and cells */
+.genetable .col-func { width: 500px; }
+
+/* Ellipsis on the inner block so the cell can still host absolutely-positioned menu */
+.genetable .col-func .truncate {
+    display: block;
+    max-width: 500px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .menu {
     display: none;
     position: absolute;

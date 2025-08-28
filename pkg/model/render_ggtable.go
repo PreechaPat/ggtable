@@ -224,7 +224,7 @@ func init() {
 				<th>Cluster ID</th>
 				<th>CogID</th>
 				<th>Expected Length</th>
-				<th>Function Description</th>
+				<th class="col-func">Function Description</th>
 				{{range .SelectedGenomeIDs}}<th class="rotate-text">{{index $.GenomeNames .}}</th>{{end}}
 			</tr>
 			{{range .Rows}}
@@ -240,8 +240,11 @@ func init() {
 					</td>
 					<td>{{.ClusterProperty.CogID}}</td>
 					<td>{{.ClusterProperty.ExpectedLength}}</td>
-					<td>{{.ClusterProperty.FunctionDescription}}</td>
-					{{ range $index, $loc_map := arrangeGenome .Genomes $.SelectedGenomeIDs}}
+<td class="col-func">
+  <span class="truncate" title="{{.ClusterProperty.FunctionDescription}}">
+    {{.ClusterProperty.FunctionDescription}}
+  </span>
+</td>					{{ range $index, $loc_map := arrangeGenome .Genomes $.SelectedGenomeIDs}}
 						{{template "cellContent" $loc_map}}
 					{{end}}
 				</tr>
