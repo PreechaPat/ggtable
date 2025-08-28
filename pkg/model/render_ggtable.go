@@ -12,12 +12,12 @@ import (
 // getColor maps a value from 70 to 100 to a color between #ff0000 (red) and #00ff00 (green).
 func getColor(value float64) string {
 
+	// For over 100% return green
 	if value >= 100 {
 		return fmt.Sprintf("#%02X%02X00", 0, 255)
 	}
 
 	// Return grey color if it is lower than 70%
-	// The region will also return grey since it will always have -1.
 	if value < 70 {
 		return "#8B8989"
 	}
@@ -70,7 +70,13 @@ func arrangeGenome(genomes map[string]*Genome, genome_ids []string) <-chan map[s
 					allRegions = append(allRegions, region)
 				}
 
-				color := getColor(maxCompletenessGene)
+				var color string
+				if len(allGenes) == 0 {
+					color = "CCCCCC" // Grey if no gene found
+				} else {
+					color = getColor(maxCompletenessGene)
+				}
+
 				outchan <- map[string]interface{}{
 					"genes":   allGenes,
 					"regions": allRegions,
