@@ -90,76 +90,74 @@ document.addEventListener('DOMContentLoaded', function () {
 
 //
 // Function to save / load form value from local storage
+// 
+// function saveFormValues(form) {
 //
-
-// Function to save form values to localStorage
-function saveFormValues(form) {
-
-    const formData = new FormData(form);
-    const formId = form.id || `form_${Array.from(document.forms).indexOf(form)}`;
-    
-    // for (const [key, value] of formData.entries()) {
-    //     localStorage.setItem(`${formId}_${key}`, value);
-    // }
-    Array.from(form.elements).forEach(element => {
-        if (element.name) {
-            if (element.type === 'checkbox' || element.type === 'radio') {
-                localStorage.setItem(`${formId}_${element.name}`, element.checked);
-            } else {
-                localStorage.setItem(`${formId}_${element.name}`, element.value);
-            }
-        }
-    });
-}
-
-// Function to load form values from localStorage
-function loadFormValues(form) {
-    const formId = form.id || `form_${Array.from(document.forms).indexOf(form)}`;
-    
-    Array.from(form.elements).forEach(element => {
-        if (element.name) {
-            const savedValue = localStorage.getItem(`${formId}_${element.name}`);
-            if (savedValue !== null) {
-                if (element.type === 'checkbox' || element.type === 'radio') {
-                    element.checked = savedValue === 'true';
-                } else if (element.tagName === 'SELECT') {
-                    const option = Array.from(element.options).find(opt => opt.value === savedValue);
-                    if (option) option.selected = true;
-                } else {
-                    element.value = savedValue;
-                }
-            } else if (element.type === 'checkbox' && element.hasAttribute('checked')) {
-                // Use default 'checked' if no saved value exists
-                element.checked = true;
-            }
-        }
-    });
-}
-
-// Function to clear saved form data
-function clearSavedFormData(form) {
-    const formId = form.id || `form_${Array.from(document.forms).indexOf(form)}`;
-    
-    Array.from(form.elements).forEach(element => {
-        if (element.name) {
-            localStorage.removeItem(`${formId}_${element.name}`);
-        }
-    });
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const forms = document.forms;
-
-    // Add submit event listener to each form
-    Array.from(forms).forEach(form => {
-        form.addEventListener('submit', function(event) {
-            saveFormValues(this); // 'this' refers to the form element
-        });
-
-        // Load saved values for each form
-        loadFormValues(form);
-    });
-});
+//     const formData = new FormData(form);
+//     const formId = form.id || `form_${Array.from(document.forms).indexOf(form)}`;
+//
+//     // for (const [key, value] of formData.entries()) {
+//     //     localStorage.setItem(`${formId}_${key}`, value);
+//     // }
+//     Array.from(form.elements).forEach(element => {
+//         if (element.name) {
+//             if (element.type === 'checkbox' || element.type === 'radio') {
+//                 localStorage.setItem(`${formId}_${element.name}`, element.checked);
+//             } else {
+//                 localStorage.setItem(`${formId}_${element.name}`, element.value);
+//             }
+//         }
+//     });
+// }
+//
+// // Function to load form values from localStorage
+// function loadFormValues(form) {
+//     const formId = form.id || `form_${Array.from(document.forms).indexOf(form)}`;
+//
+//     Array.from(form.elements).forEach(element => {
+//         if (element.name) {
+//             const savedValue = localStorage.getItem(`${formId}_${element.name}`);
+//             if (savedValue !== null) {
+//                 if (element.type === 'checkbox' || element.type === 'radio') {
+//                     element.checked = savedValue === 'true';
+//                 } else if (element.tagName === 'SELECT') {
+//                     const option = Array.from(element.options).find(opt => opt.value === savedValue);
+//                     if (option) option.selected = true;
+//                 } else {
+//                     element.value = savedValue;
+//                 }
+//             } else if (element.type === 'checkbox' && element.hasAttribute('checked')) {
+//                 // Use default 'checked' if no saved value exists
+//                 element.checked = true;
+//             }
+//         }
+//     });
+// }
+//
+// // Function to clear saved form data
+// function clearSavedFormData(form) {
+//     const formId = form.id || `form_${Array.from(document.forms).indexOf(form)}`;
+//
+//     Array.from(form.elements).forEach(element => {
+//         if (element.name) {
+//             localStorage.removeItem(`${formId}_${element.name}`);
+//         }
+//     });
+// }
+//
+// document.addEventListener('DOMContentLoaded', function() {
+//     const forms = document.forms;
+//
+//     // Add submit event listener to each form
+//     Array.from(forms).forEach(form => {
+//         form.addEventListener('submit', function(event) {
+//             saveFormValues(this); // 'this' refers to the form element
+//         });
+//
+//         // Load saved values for each form
+//         loadFormValues(form);
+//     });
+// });
 
 //
 // Add toggle genomes button for select/deselect all genomes

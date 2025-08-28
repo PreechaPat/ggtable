@@ -2,9 +2,9 @@ package model
 
 import (
 	"fmt"
+	"html/template"
 	"io"
 	"math"
-	"text/template"
 
 	"github.com/yumyai/ggtable/pkg/handler/types"
 )
@@ -144,16 +144,16 @@ func init() {
 			<label for="search"></label>
 			<div class="form-row">
 				<label>Search by:<select name="search_by" id="search_by">
-					<option value=function>Function</option>
-					<option value=cog>COG</option>
-					<option value=cluster_id>Cluster ID</option>
+					<option value="function"   {{if eq .SearchField "function"}}selected{{end}}>Function</option>
+					<option value="cog"        {{if eq .SearchField "cog"}}selected{{end}}>COG</option>
+					<option value="cluster_id" {{if eq .SearchField "cluster_id"}}selected{{end}}>Cluster ID</option>
 				</select></label>
-				<input type="text" name="search" placeholder="In"></input>
+				<input type="text" name="search" placeholder="In" value="{{.SearchText}}"></input>
 			</div>
 			<label>Page Size:<select name="page_size" id="page_size">
-				<option value=25>25</option>
-				<option value=50>50</option>
-				<option value=100>100</option>
+				<option value=25 {{if eq .PageSize 25}}selected{{end}}>25</option>
+				<option value=50 {{if eq .PageSize 50}}selected{{end}}>50</option>
+				<option value=100{{if eq .PageSize 100}}selected{{end}}>100</option>
 			</select></label>
 			<input type="hidden" name="page" value=1></input>
 			{{template "filterByGenome" .}}
@@ -199,7 +199,11 @@ func init() {
 					{{range .AllGenomeIDs}}
 						{{ $key := . }} {{ $value := index $.GenomeNames $key }}
 						<label style="display: block; margin-bottom: 4px; font-size 0.8rem">
-							<input type="checkbox" class="genome-checkbox" name="gm_{{$key}}" value="y" checked="checked" />
+							<input type="checkbox" 
+							  class="genome-checkbox"
+							  name="gm_{{$key}}"
+							  value="y"
+							  {{if hasKey $.SelectedGenome $key}}checked{{end}} />
 							{{$value}}
 						</label>
 					{{end}}
@@ -293,6 +297,12 @@ func init() {
 		"arrangeGenome": arrangeGenome,
 		"add":           func(a, b int) int { return a + b },
 		"sub":           func(a, b int) int { return a - b },
+		"eqs":           func(a, b string) bool { return a == b },
+		"eqi":           func(a, b int) bool { return a == b },
+		"hasKey": func(m map[string]struct{}, k string) bool {
+			_, ok := m[k]
+			return ok
+		},
 	}
 
 	searchPageTemplate = template.New("ggtable").Funcs(funcMap)
@@ -312,21 +322,21 @@ func init() {
 func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request types.ClusterSearchRequest, totalPage int) error {
 
 	genomeIDAll := ALL_GENOME_ID
-
-	// Create a set (map) for quick lookup of `header` (genomeIDs)
-	genomeIDSet := make(map[string]struct{})
+	genomeMapAll := MAP_HEADER
 	header := search_request.GenomeIDs
 	currentPage := search_request.Page
 	pageSize := search_request.Page_size
 
+	// Create a set (map) for quick lookup of `header` (genomeIDs)
+	headerSet := make(map[string]struct{})
 	for _, id := range header {
-		genomeIDSet[id] = struct{}{}
+		headerSet[id] = struct{}{}
 	}
 
-	// Reorder `genomeIDs` to match `genomeIDSelection`
+	// Reorder `headerSet` reorder according to `genomeIDAll`
 	reorderedGenomeIDs := []string{}
 	for _, id := range genomeIDAll {
-		if _, exists := genomeIDSet[id]; exists {
+		if _, exists := headerSet[id]; exists {
 			reorderedGenomeIDs = append(reorderedGenomeIDs, id)
 		}
 	}
@@ -337,17 +347,26 @@ func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request types.Cl
 		SelectedGenomeIDs []string
 		AllGenomeIDs      []string
 		GenomeNames       map[string]string
-		CurrentPage       int
-		TotalPage         int
-		PageSize          int
+		// For keep track when changing page
+		SelectedGenome map[string]struct{}
+		SearchText     string
+		SearchField    string
+		GenomeChecked  map[string]bool
+		CurrentPage    int
+		TotalPage      int
+		PageSize       int
 	}{
 		Rows:              rows,
 		SelectedGenomeIDs: reorderedGenomeIDs,
 		AllGenomeIDs:      genomeIDAll,
-		GenomeNames:       MAP_HEADER,
-		CurrentPage:       currentPage,
-		TotalPage:         totalPage,
-		PageSize:          pageSize,
+		GenomeNames:       genomeMapAll,
+		// For keep track when changing page
+		SelectedGenome: headerSet,
+		SearchText:     search_request.Search_for,
+		SearchField:    search_request.Search_field,
+		CurrentPage:    currentPage,
+		TotalPage:      totalPage,
+		PageSize:       pageSize,
 	}
 
 	return searchPageTemplate.Execute(w, data)
