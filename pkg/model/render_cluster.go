@@ -1,3 +1,5 @@
+// Render HTML for viewing a cluster
+
 package model
 
 import (
@@ -10,11 +12,6 @@ import (
 )
 
 var cluster_page_template *template.Template
-
-// Template function
-func subtract(a int, b int) int {
-	return a - b
-}
 
 // init initializes the templates used for rendering the cluster page.
 func init() {
@@ -49,7 +46,7 @@ func init() {
 		    <p>This cluster consists of {{ len $.Cluster.Genomes }} genomes.</p>
 			<p>Function: {{ $.Cluster.ClusterProperty.FunctionDescription }}</p>
 			<p>Consists of {{ $.TotalGenes }} gene members and {{ $.TotalRegions }} homologous genomic regions from {{ len $.Cluster.Genomes }} / 101 genomes.</p>
-			<p>Representative gene: {{ $.RepresentativeGene.GeneID }} ({{ subtract $.RepresentativeGene.Region.End $.RepresentativeGene.Region.Start }} bp) [ {{$.RepresentativeGene.Region.GenomeID }}]</p>
+			<p>Representative gene: {{ $.RepresentativeGene.GeneID }} ({{ calculateGeneLength $.RepresentativeGene.Region.End $.RepresentativeGene.Region.Start }} bp) [ {{$.RepresentativeGene.Region.GenomeID }}]</p>
 		</div>
 	  {{end}}
 	`
@@ -75,7 +72,7 @@ func init() {
 					{{ with $gene.Region }}
 						<td>{{ .Start }}</td>
 						<td>{{ .End }}</td>
-						<td>{{ subtract .End .Start }}</td>
+						<td>{{ calculateGeneLength .End .Start }}</td>
 						<td>{{ .ContigID }}</td>
 					{{ else }}
 						<td>N/A</td>
@@ -97,7 +94,7 @@ func init() {
 					<td> Region - {{ .GenomeID }}|{{ .ContigID }}:{{ .Start }}-{{ .End }} </td>
 					<td>{{ .Start }}</td>
 					<td>{{ .End }}</td>
-					<td>{{ subtract .End .Start }}</td>
+					<td>{{ calculateGeneLength .End .Start }}</td>
 					<td>{{ .ContigID }}</td>
 					<td> N/A </td>
 					<td>
@@ -111,9 +108,21 @@ func init() {
 	{{end}}`
 
 	cluster_page_template = template.New("cluster_page")
-	cluster_page_template = cluster_page_template.Funcs(template.FuncMap{
-		"subtract": subtract,
-	})
+
+	funcMap := template.FuncMap{
+		"arrangeGenome": arrangeGenome,
+		"add":           func(a, b int) int { return a + b },
+		"sub":           func(a, b int) int { return a - b },
+		"eqs":           func(a, b string) bool { return a == b },
+		"eqi":           func(a, b int) bool { return a == b },
+		"hasKey": func(m map[string]struct{}, k string) bool {
+			_, ok := m[k]
+			return ok
+		},
+		"calculateGeneLength": func(a, b int) int { return int(math.Abs(float64(a - b + 1))) },
+	}
+
+	cluster_page_template = cluster_page_template.Funcs(funcMap)
 	cluster_page_template = template.Must(cluster_page_template.Parse(mainTmpl))
 	cluster_page_template = template.Must(cluster_page_template.Parse(clusterSummaryTempl))
 	cluster_page_template = template.Must(cluster_page_template.Parse(clusterInfoTmpl))
