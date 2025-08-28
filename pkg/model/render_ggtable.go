@@ -151,9 +151,10 @@ func init() {
 				<input type="text" name="search" placeholder="In" value="{{.SearchText}}"></input>
 			</div>
 			<label>Page Size:<select name="page_size" id="page_size">
-				<option value=25 {{if eq .PageSize 25}}selected{{end}}>25</option>
 				<option value=50 {{if eq .PageSize 50}}selected{{end}}>50</option>
-				<option value=100{{if eq .PageSize 100}}selected{{end}}>100</option>
+				<option value=100 {{if eq .PageSize 100}}selected{{end}}>100</option>
+				<option value=250{{if eq .PageSize 250}}selected{{end}}>250</option>
+				<option value=500{{if eq .PageSize 500}}selected{{end}}>500</option>
 			</select></label>
 			<input type="hidden" name="page" value=1></input>
 			{{template "filterByGenome" .}}

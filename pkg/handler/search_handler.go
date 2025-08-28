@@ -116,7 +116,7 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 // Main page query everything.
 func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 
-	PAGE_SIZE := 50
+	PAGE_SIZE := 100
 
 	pageNumStr := r.URL.Query().Get("page")
 	pageNum, _ := strconv.Atoi(pageNumStr)
