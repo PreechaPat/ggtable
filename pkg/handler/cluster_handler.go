@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Get cluster by genome + gene ID
 func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.Request) {
 
 	genome := r.URL.Query().Get("genome_id")
@@ -42,8 +43,17 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// RenderingPage
-	err3 := model.RenderClustersAsTable(w, []*model.Cluster{cluster_prob}, model.ALL_GENOME_ID, 1, 1, 1)
+	// TODO: Get For and field later
+	var search_request = types.ClusterSearchRequest{
+		Search_for:   "",
+		Search_field: "",
+		Page:         1,
+		Page_size:    1,
+		GenomeIDs:    model.ALL_GENOME_ID,
+		// RequireGenesFromGenomes: reqGeneFromGenome,
+	}
+
+	err3 := model.RenderClustersAsTable(w, []*model.Cluster{cluster_prob}, search_request, 1)
 
 	if err3 != nil {
 		fmt.Fprint(w, "ERROR")

@@ -159,7 +159,7 @@ func NewRouter(dbctx *handler.DBContext) *http.ServeMux {
 	mux.HandleFunc("GET /search", dbctx.ClusterSearchPage)
 	mux.HandleFunc("POST /blast", dbctx.BlastSearchPage)
 	mux.HandleFunc("GET /cluster/{cluster_id}", dbctx.ClusterPage) // Go to cluster-page, difference from below TODO: change name to avoide future confusion
-	mux.HandleFunc("GET /cluster/", dbctx.GetClusterByGeneHandler) // Use by in BLAST result, TODO: Change name later
+	mux.HandleFunc("GET /cluster/", dbctx.GetClusterByGeneHandler) // Use by in BLAST result.
 	mux.HandleFunc("GET /redirect/blastn/", dbctx.BlastNRedirectPage)
 	mux.HandleFunc("GET /redirect/blastp/", dbctx.BlastPRedirectPage)
 

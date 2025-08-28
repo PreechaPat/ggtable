@@ -54,9 +54,7 @@ type ClusterResponse struct {
 // Search page
 func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request) {
 
-	// I can parse form here, but why though?
 	if err := r.ParseForm(); err != nil {
-
 		http.Error(w, "Error parsing form", http.StatusBadRequest)
 		return
 	}
@@ -68,28 +66,26 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	currentPage, _ := strconv.Atoi(pageNumStr)
 	pageSize, _ := strconv.Atoi(pageSizeStr)
 
-	// Array to hold filtered genome
-	var genomeIDs []string
-
-	// Iterate over query parameters
+	// Include the following genome only
+	var includeGenome []string
 	for key := range r.URL.Query() {
 		if strings.HasPrefix(key, "gm_") {
 			// Strip "gn_" prefix and append to the array
 			strippedKey := strings.TrimPrefix(key, "gm_")
-			genomeIDs = append(genomeIDs, strippedKey)
+			includeGenome = append(includeGenome, strippedKey)
 		}
 	}
 
-	// Only include those cluster with following genes
-	var reqGeneFromGenome []string
-	// Iterate over query parameters
-	for key := range r.URL.Query() {
-		if strings.HasPrefix(key, "gn_") {
-			// Strip "gn_" prefix and append to the array
-			strippedKey := strings.TrimPrefix(key, "gn_")
-			reqGeneFromGenome = append(reqGeneFromGenome, strippedKey)
-		}
-	}
+	// // Only include those cluster with following genes
+	// var reqGeneFromGenome []string
+	// // Iterate over query parameters
+	// for key := range r.URL.Query() {
+	// 	if strings.HasPrefix(key, "gn_") {
+	// 		// Strip "gn_" prefix and append to the array
+	// 		strippedKey := strings.TrimPrefix(key, "gn_")
+	// 		reqGeneFromGenome = append(reqGeneFromGenome, strippedKey)
+	// 	}
+	// }
 
 	logger.Debug("Running search",
 		zap.String("searchterm", searchTerm),
@@ -97,19 +93,19 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 		zap.Int("Pagesize", pageSize))
 
 	var search_request = types.ClusterSearchRequest{
-		Search_for:              searchTerm,
-		Search_field:            searchBy,
-		Page:                    currentPage,
-		Page_size:               pageSize,
-		GenomeIDs:               genomeIDs,
-		RequireGenesFromGenomes: reqGeneFromGenome,
+		Search_for:   searchTerm,
+		Search_field: searchBy,
+		Page:         currentPage,
+		Page_size:    pageSize,
+		GenomeIDs:    includeGenome,
+		// RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 
 	rows, _ := model.SearchGeneCluster(dbctx.DB, search_request)
 	rowNum, _ := model.CountRowByQuery(dbctx.DB, search_request)
 	totalPageNum := (rowNum + pageSize - 1) / pageSize // Rounding up
 
-	err := model.RenderClustersAsTable(w, rows, genomeIDs, currentPage, totalPageNum, pageSize)
+	err := model.RenderClustersAsTable(w, rows, search_request, totalPageNum)
 
 	if err != nil {
 		logger.Error(err.Error())
@@ -138,6 +134,7 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		Search_field: "function",
 		Page:         pageNum,
 		Page_size:    PAGE_SIZE,
+		GenomeIDs:    model.ALL_GENOME_ID, // Default to all genomes
 	}
 
 	rows, err := model.GetMainPage(dbctx.DB, search_request) // Capture the error here
@@ -162,7 +159,7 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 
 	totalPageNum := (rowNum + PAGE_SIZE - 1) / PAGE_SIZE // To round it up instead
 
-	err = model.RenderClustersAsTable(w, rows, model.ALL_GENOME_ID, pageNum, totalPageNum, PAGE_SIZE)
+	err = model.RenderClustersAsTable(w, rows, search_request, totalPageNum)
 
 	if err != nil {
 		logger.Error(err.Error()) // Already logging the error message

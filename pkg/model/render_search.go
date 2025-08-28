@@ -5,6 +5,8 @@ import (
 	"io"
 	"math"
 	"text/template"
+
+	"github.com/yumyai/ggtable/pkg/handler/types"
 )
 
 // getColor maps a value from 70 to 100 to a color between #ff0000 (red) and #00ff00 (green).
@@ -210,29 +212,6 @@ func init() {
 	{{define "filterByGene"}}
 	{{end}}
 	`
-	// filterByGene := `
-	// {{define "filterByGene"}}
-	// 	<div class="collapsible">
-	// 		<div class="collapse-header">
-	// 			Show gene(s) only present in
-	// 		</div>
-	// 		<div class="collapse-content">
-	// 			<div>
-	// 				<button type="button" id="toggle-all-genes" style="margin-bottom: 8px;">Select/Deselect All</button>
-	// 			</div>
-	// 			<div class="stacked-checkboxes">
-	// 				{{range .AllGenomeIDs}}
-	// 					{{ $key := . }} {{ $value := index $.GenomeNames $key }}
-	// 					<label style="display: block; margin-bottom: 4px; font-size 0.8rem">
-	// 						<input type="checkbox" class="gene-checkbox" name="gn_{{$key}}" value="y" checked="checked" />
-	// 						{{$value}}
-	// 					</label>
-	// 				{{end}}
-	// 			</div>
-	// 		</div>
-	// 	</div>
-	// {{end}}
-	// `
 
 	tableTmpl := `
 	{{define "table"}}
@@ -330,12 +309,16 @@ func init() {
 
 // Function to render an HTML page with a table
 // Header for arrange the genome id
-func RenderClustersAsTable(w io.Writer, rows []*Cluster, header []string, currentPage int, totalPage int, pageSize int) error {
+func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request types.ClusterSearchRequest, totalPage int) error {
 
 	genomeIDAll := ALL_GENOME_ID
 
 	// Create a set (map) for quick lookup of `header` (genomeIDs)
 	genomeIDSet := make(map[string]struct{})
+	header := search_request.GenomeIDs
+	currentPage := search_request.Page
+	pageSize := search_request.Page_size
+
 	for _, id := range header {
 		genomeIDSet[id] = struct{}{}
 	}

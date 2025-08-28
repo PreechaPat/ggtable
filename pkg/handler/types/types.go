@@ -26,6 +26,7 @@ type ClusterSearchRequest struct {
 	RequireGenesFromGenomes []string `json:"require_genes_from_genomes"` // Filter: only include clusters with these genes from the specified genomes
 }
 
+// Get gene sequence
 type GeneGetRequest struct {
 	Genome_ID string `json:"genome_id"`
 	Contig_ID string `json:"contig_id"`
@@ -33,6 +34,7 @@ type GeneGetRequest struct {
 	Is_Prot   bool   `json:"is_prot"`
 }
 
+// Get region sequence
 type RegionGetRequest struct {
 	Genome_ID string `json:"genome_id"`
 	Contig_ID string `json:"contig_id"`
@@ -41,7 +43,7 @@ type RegionGetRequest struct {
 	Is_Prot   bool   `json:"is_prot"`
 }
 
-// Method for samtools request
+// Methods for building samtools request strings
 func (g GeneGetRequest) String() string {
 	return fmt.Sprintf(
 		"%s|%s|%s",
@@ -49,10 +51,11 @@ func (g GeneGetRequest) String() string {
 	)
 }
 
-// String method for RegionRequest
 func (r RegionGetRequest) String() string {
 	return fmt.Sprintf(
 		"%s|%s:%d-%d",
 		r.Genome_ID, r.Contig_ID, r.Start, r.End,
 	)
 }
+
+// Methods
