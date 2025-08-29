@@ -90,7 +90,7 @@ func arrangeClusterData(clusterQueries []*ClusterQuery) []*Cluster {
 }
 
 // Main search function for cluster search
-func searchCluster(db *sql.DB, searchRequest types.ClusterSearchRequest) ([]*Cluster, error) {
+func searchClusterByProp(db *sql.DB, searchRequest types.ClusterSearchRequest) ([]*Cluster, error) {
 	ctx := context.TODO()
 
 	// Create temporary tables for filtering
@@ -110,7 +110,7 @@ func searchCluster(db *sql.DB, searchRequest types.ClusterSearchRequest) ([]*Clu
 	// Filter cluster
 	clusterFilterDescription := ""
 
-	switch search_field := searchRequest.Search_field; search_field {
+	switch search_field := searchRequest.Search_Field; search_field {
 
 	case "function":
 		clusterFilterDescription = "gc.function_description LIKE ?"
@@ -129,10 +129,10 @@ func searchCluster(db *sql.DB, searchRequest types.ClusterSearchRequest) ([]*Clu
 	var PREPARGS []interface{}
 
 	// Add search term if present
-	PREPARGS = append(PREPARGS, "%"+searchRequest.Search_for+"%")
+	PREPARGS = append(PREPARGS, "%"+searchRequest.Search_For+"%")
 
-	limit := searchRequest.Page_size
-	offset := (searchRequest.Page - 1) * searchRequest.Page_size
+	limit := searchRequest.Page_Size
+	offset := (searchRequest.Page - 1) * searchRequest.Page_Size
 	PREPARGS = append(PREPARGS, limit, offset)
 	_, err := db.ExecContext(ctx, PREPQ, PREPARGS...)
 	if err != nil {
@@ -148,7 +148,7 @@ func searchCluster(db *sql.DB, searchRequest types.ClusterSearchRequest) ([]*Clu
 	if err != nil {
 		return nil, fmt.Errorf("failed to start transaction: %w", err)
 	}
-	for _, id := range searchRequest.GenomeIDs {
+	for _, id := range searchRequest.Genome_IDs {
 		_, err := tx.ExecContext(ctx, `INSERT INTO temp_genome_ids (genome_id) VALUES (?)`, id)
 		if err != nil {
 			tx.Rollback()
@@ -343,7 +343,7 @@ func getAllClusters(db *sql.DB, searchParams types.ClusterSearchRequest) ([]*Clu
 	FROM vt
 	LEFT JOIN matches ON vt.cluster_id = matches.cluster_id;
 	`
-	page_size := searchParams.Page_size
+	page_size := searchParams.Page_Size
 	page := searchParams.Page
 
 	stm, err := db.PrepareContext(ctx, qstring)
@@ -399,6 +399,10 @@ func getAllClusters(db *sql.DB, searchParams types.ClusterSearchRequest) ([]*Clu
 	return results, nil
 }
 
+// TODO: This is harddd
+// func searchClusterByGeneID(db *sql.DB, geneID string) ([]*Cluster, error) {
+// }
+
 // Use this to separate from the search function
 func GetMainPage(db *sql.DB, search_request types.ClusterSearchRequest) ([]*Cluster, error) {
 
@@ -423,7 +427,7 @@ func GetMainPage(db *sql.DB, search_request types.ClusterSearchRequest) ([]*Clus
 // Search for gene cluster based on request
 func SearchGeneCluster(db *sql.DB, search_request types.ClusterSearchRequest) ([]*Cluster, error) {
 
-	gene_result, query_err := searchCluster(db, search_request)
+	gene_result, query_err := searchClusterByProp(db, search_request)
 
 	if query_err != nil {
 		logger.Error("Error at in query", zap.String("Error:", query_err.Error()))
@@ -442,7 +446,7 @@ func SearchGeneCluster(db *sql.DB, search_request types.ClusterSearchRequest) ([
 // Count how many row this query will return. Use for calc the number of return page.
 func CountRowByQuery(db *sql.DB, searchRequest types.ClusterSearchRequest) (rownum int, err error) {
 
-	searchFor := searchRequest.Search_for
+	searchFor := searchRequest.Search_For
 
 	ctx := context.TODO()
 	PREP := `select COUNT(cluster_id) from gene_clusters as gc
@@ -453,7 +457,7 @@ func CountRowByQuery(db *sql.DB, searchRequest types.ClusterSearchRequest) (rown
 
 	clusterFilterDescription := ""
 
-	switch search_field := searchRequest.Search_field; search_field {
+	switch search_field := searchRequest.Search_Field; search_field {
 
 	case "function":
 		clusterFilterDescription = "gc.function_description LIKE ?"
@@ -494,25 +498,6 @@ func CountRowByQuery(db *sql.DB, searchRequest types.ClusterSearchRequest) (rown
 	}
 
 	return count, nil
-}
-
-// For search pages
-func GetAllClusters(db *sql.DB, search_request types.ClusterSearchRequest) ([]*Cluster, error) {
-
-	gene_result, query_err := getAllClusters(db, search_request)
-
-	if query_err != nil {
-		return nil, query_err
-	}
-
-	// If nothing return, make a zero array so encoder can do it correctly.
-	if len(gene_result) == 0 {
-		ret := make([]*Cluster, 0)
-		return ret, nil
-	}
-
-	res := arrangeClusterData(gene_result)
-	return res, nil
 }
 
 func CountAllRow(db *sql.DB) (rownum int, err error) {

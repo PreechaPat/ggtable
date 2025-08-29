@@ -45,11 +45,11 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 
 	// TODO: Get For and field later
 	var search_request = types.ClusterSearchRequest{
-		Search_for:   "",
-		Search_field: "",
+		Search_For:   "",
+		Search_Field: "",
 		Page:         1,
-		Page_size:    1,
-		GenomeIDs:    model.ALL_GENOME_ID,
+		Page_Size:    1,
+		Genome_IDs:   model.ALL_GENOME_ID,
 		// RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 

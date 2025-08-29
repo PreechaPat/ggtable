@@ -29,8 +29,8 @@ func init() {
 		{{template "cluster_info" .Cluster}}
 		<h2>Resources</h2>
 		    <ul>
-				<li>[<a href="/sequence/by-cluster?cluster_id={{ .Cluster.ClusterProperty.ClusterID }}&is_prot=false">FNA</a>]All nucleotide sequences in FASTA format</li>
-				<li>[<a href="/sequence/by-cluster?cluster_id={{ .Cluster.ClusterProperty.ClusterID }}&is_prot=true">FAA</a>]All protein sequences in FASTA format</li>
+				<li>[<a href="/sequence/by-cluster?cluster_id={{ .Cluster.ClusterProperty.ClusterID }}&is_prot=false" target="_blank">FNA</a>]All nucleotide sequences in FASTA format</li>
+				<li>[<a href="/sequence/by-cluster?cluster_id={{ .Cluster.ClusterProperty.ClusterID }}&is_prot=true" target-"_blank">FAA</a>]All protein sequences in FASTA format</li>
 			</ul>
 		<script>
 		</script>
@@ -82,9 +82,9 @@ func init() {
 					{{ end }}
 					<td> {{ .Description }} </td>
 					<td>
-						[<a target="_blank" href="/sequence/by-gene?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}&is_prot=false">FNA</a>]
-						[<a target="_blank" href="/sequence/by-gene?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}&is_prot=true">FAA</a>]
-						[<a target="_blank" href="/redirect/blastp?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}">BLASTP</a>]
+						[<a href="/sequence/by-gene?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}&is_prot=false" target="_blank">FNA</a>]
+						[<a href="/sequence/by-gene?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}&is_prot=true" target="_blank">FAA</a>]
+						[<a href="/redirect/blastp?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}" target="_blank">BLASTP</a>]
 					</td>
 				</tr>
 			{{ end }}
@@ -98,8 +98,8 @@ func init() {
 					<td>{{ .ContigID }}</td>
 					<td> N/A </td>
 					<td>
-						[<a target="_blank" href="/sequence/by-region?genome_id={{ .GenomeID }}&contig_id={{ .ContigID }}&start={{ .Start }}&end={{ .End }}">FNA</a>]
-						[<a target="_blank" href="/redirect/blastn?genome_id={{ .GenomeID }}&contig_id={{ .ContigID }}&start={{ .Start }}&end={{ .End }}">BLASTN</a>]
+						[<a href="/sequence/by-region?genome_id={{ .GenomeID }}&contig_id={{ .ContigID }}&start={{ .Start }}&end={{ .End }}" target="_blank">FNA</a>]
+						[<a href="/redirect/blastn?genome_id={{ .GenomeID }}&contig_id={{ .ContigID }}&start={{ .Start }}&end={{ .End }}" target="_blank">BLASTN</a>]
 					</td>
 				</tr>
 			{{ end }}

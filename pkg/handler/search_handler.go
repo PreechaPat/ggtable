@@ -61,6 +61,10 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 
 	searchTerm := r.URL.Query().Get("search")
 	searchBy := r.URL.Query().Get("search_by")
+	orderBy := r.URL.Query().Get("order_by")
+	if orderBy == "" {
+		orderBy = "cluster_id"
+	}
 	pageNumStr := r.URL.Query().Get("page")
 	pageSizeStr := r.URL.Query().Get("page_size")
 	currentPage, _ := strconv.Atoi(pageNumStr)
@@ -93,11 +97,11 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 		zap.Int("Pagesize", pageSize))
 
 	var search_request = types.ClusterSearchRequest{
-		Search_for:   searchTerm,
-		Search_field: searchBy,
+		Search_For:   searchTerm,
+		Search_Field: searchBy,
 		Page:         currentPage,
-		Page_size:    pageSize,
-		GenomeIDs:    includeGenome,
+		Page_Size:    pageSize,
+		Genome_IDs:   includeGenome,
 		// RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 
@@ -130,11 +134,11 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		zap.Int("page", pageNum))
 
 	var search_request = types.ClusterSearchRequest{
-		Search_for:   "",
-		Search_field: "function",
+		Search_For:   "",
+		Search_Field: "function",
 		Page:         pageNum,
-		Page_size:    PAGE_SIZE,
-		GenomeIDs:    model.ALL_GENOME_ID, // Default to all genomes
+		Page_Size:    PAGE_SIZE,
+		Genome_IDs:   model.ALL_GENOME_ID, // Default to all genomes
 	}
 
 	rows, err := model.GetMainPage(dbctx.DB, search_request) // Capture the error here

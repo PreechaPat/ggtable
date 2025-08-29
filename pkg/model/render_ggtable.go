@@ -240,18 +240,19 @@ func init() {
 						{{.ClusterProperty.ClusterID}}
 						<div class="menu">
 							<a href="#" class="close-menu">[close]</a>
-							[<a href="/cluster/{{.ClusterProperty.ClusterID}}">Overview</a>]
-							[<a href="/sequence/by-cluster?cluster_id={{ .ClusterProperty.ClusterID }}&is_prot=false">FNA</a>]
-							[<a href="/sequence/by-cluster?cluster_id={{ .ClusterProperty.ClusterID }}&is_prot=true">FAA</a>]
+							[<a href="/cluster/{{.ClusterProperty.ClusterID}}" target="_blank">Overview</a>]
+							[<a href="/sequence/by-cluster?cluster_id={{ .ClusterProperty.ClusterID }}&is_prot=false" target="_blank">FNA</a>]
+							[<a href="/sequence/by-cluster?cluster_id={{ .ClusterProperty.ClusterID }}&is_prot=true" target="_blank">FAA</a>]
 						</div>
 					</td>
 					<td>{{.ClusterProperty.CogID}}</td>
 					<td>{{.ClusterProperty.ExpectedLength}}</td>
-<td class="col-func">
-  <span class="truncate" title="{{.ClusterProperty.FunctionDescription}}">
-    {{.ClusterProperty.FunctionDescription}}
-  </span>
-</td>					{{ range $index, $loc_map := arrangeGenome .Genomes $.SelectedGenomeIDs}}
+					<td class="col-func">
+					<span class="truncate" title="{{.ClusterProperty.FunctionDescription}}">
+						{{.ClusterProperty.FunctionDescription}}
+					</span>
+					</td>
+					{{ range $index, $loc_map := arrangeGenome .Genomes $.SelectedGenomeIDs}}
 						{{template "cellContent" $loc_map}}
 					{{end}}
 				</tr>
@@ -270,16 +271,16 @@ func init() {
 				{{else}}
 					{{range $index, $gene := .genes}}
 						<div>{{$gene.GeneID}} - 
-							[<a href="/sequence/by-gene?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}&is_prot=false">N</a>]
-							[<a href="/sequence/by-gene?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}&is_prot=true">P</a>]
-							[<a target="_blank" href="/redirect/blastp?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}">BLASTP</a>]
+							[<a href="/sequence/by-gene?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}&is_prot=false" target="_blank">N</a>]
+							[<a href="/sequence/by-gene?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}&is_prot=true" target="_blank">P</a>]
+							[<a href="/redirect/blastp?genome_id={{$gene.Region.GenomeID}}&contig_id={{$gene.Region.ContigID}}&gene_id={{$gene.GeneID}}" target="_blank">BLASTP</a>]
 						</div>
 					{{end}}
 					{{range $index, $region := .regions}}
 						<div>
 							Region - {{ $region }}
-								[<a href="/sequence/by-region?genome_id={{$region.GenomeID}}&contig_id={{$region.ContigID}}&start={{$region.Start}}&end={{$region.End}}">N</a>]
-								[<a target="_blank" href="/redirect/blastn?genome_id={{ .GenomeID }}&contig_id={{ .ContigID }}&start={{ .Start }}&end={{ .End }}">BLASTN</a>]
+								[<a href="/sequence/by-region?genome_id={{$region.GenomeID}}&contig_id={{$region.ContigID}}&start={{$region.Start}}&end={{$region.End}}" target="_blank">N</a>]
+								[<a href="/redirect/blastn?genome_id={{ .GenomeID }}&contig_id={{ .ContigID }}&start={{ .Start }}&end={{ .End }}" target="_blank">BLASTN</a>]
 						</div>
 					{{end}}
 				{{end}}
@@ -333,9 +334,9 @@ func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request types.Cl
 
 	genomeIDAll := ALL_GENOME_ID
 	genomeMapAll := MAP_HEADER
-	header := search_request.GenomeIDs
+	header := search_request.Genome_IDs
 	currentPage := search_request.Page
-	pageSize := search_request.Page_size
+	pageSize := search_request.Page_Size
 
 	// Create a set (map) for quick lookup of `header` (genomeIDs)
 	headerSet := make(map[string]struct{})
@@ -372,8 +373,8 @@ func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request types.Cl
 		GenomeNames:       genomeMapAll,
 		// For keep track when changing page
 		SelectedGenome: headerSet,
-		SearchText:     search_request.Search_for,
-		SearchField:    search_request.Search_field,
+		SearchText:     search_request.Search_For,
+		SearchField:    search_request.Search_Field,
 		CurrentPage:    currentPage,
 		TotalPage:      totalPage,
 		PageSize:       pageSize,
