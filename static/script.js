@@ -2,6 +2,10 @@
 function updatePage(targetPage) {
 
     const form = document.getElementById('searchForm');
+    if (!form) {
+        console.error("Form with id 'searchForm' not found.");
+        return;
+    }
     const pageInput = form.elements.namedItem('page')
 
     // Set the target page

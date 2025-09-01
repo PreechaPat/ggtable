@@ -159,8 +159,8 @@ func init() {
 			<label>Page Size:<select name="page_size" id="page_size">
 				<option value=50 {{if eq .PageSize 50}}selected{{end}}>50</option>
 				<option value=100 {{if eq .PageSize 100}}selected{{end}}>100</option>
-				<option value=250{{if eq .PageSize 250}}selected{{end}}>250</option>
-				<option value=500{{if eq .PageSize 500}}selected{{end}}>500</option>
+				<option value=250 {{if eq .PageSize 250}}selected{{end}}>250</option>
+				<option value=500 {{if eq .PageSize 500}}selected{{end}}>500</option>
 			</select></label>
 			<input type="hidden" name="page" value=1></input>
 			{{template "filterByGenome" .}}
@@ -292,13 +292,13 @@ func init() {
 	<div class="pagination">
 		<div>Total page: {{.TotalPage}}</div>
 		{{if gt .CurrentPage 1}}
-			<a href="javascript:void(0);" onclick="updatePage({{sub .CurrentPage 1}}, {{.PageSize}})">&lt;&lt; prev</a>
+			<a href="javascript:void(0);" onclick="updatePage({{sub .CurrentPage 1}}, )">&lt;&lt; prev</a>
 		{{else}}
 			<span>&lt;&lt; prev</span>
 		{{end}}
 		<span>{{.CurrentPage}} / {{.TotalPage}}</span>
 		{{if lt .CurrentPage .TotalPage}}
-			<a href="javascript:void(0);" onclick="updatePage({{add .CurrentPage 1}}, {{.PageSize}})">next &gt;&gt;</a>
+			<a href="javascript:void(0);" onclick="updatePage({{add .CurrentPage 1}})">next &gt;&gt;</a>
 		{{else}}
 			<span>next &gt;&gt;</span>
 		{{end}}

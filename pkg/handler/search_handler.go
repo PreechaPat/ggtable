@@ -70,6 +70,11 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	currentPage, _ := strconv.Atoi(pageNumStr)
 	pageSize, _ := strconv.Atoi(pageSizeStr)
 
+	if pageSizeStr == "" || pageSize <= 0 {
+		logger.Error("Invalid page size, defaulting to 100")
+		pageSize = 100 // Default page size
+	}
+
 	// Include the following genome only
 	var includeGenome []string
 	for key := range r.URL.Query() {
