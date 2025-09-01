@@ -188,17 +188,3 @@ func geneRequestToSAMrequest(req *request.GeneGetRequest) string {
 func regionRequestToSAMrequest(req *request.RegionGetRequest) string {
 	return fmt.Sprintf("%s|%s:%d-%d", req.Genome_ID, req.Contig_ID, req.Start, req.End)
 }
-
-// func (g GeneGetRequest) String() string {
-// 	return fmt.Sprintf(
-// 		"%s|%s|%s",
-// 		g.Genome_ID, g.Contig_ID, g.Gene_ID,
-// 	)
-// }
-
-// func (r RegionGetRequest) String() string {
-// 	return fmt.Sprintf(
-// 		"%s|%s:%d-%d",
-// 		r.Genome_ID, r.Contig_ID, r.Start, r.End,
-// 	)
-// }
