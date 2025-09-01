@@ -6,7 +6,7 @@ import (
 	"io"
 	"math"
 
-	"github.com/yumyai/ggtable/pkg/handler/types"
+	"github.com/yumyai/ggtable/pkg/handler/request"
 )
 
 // getColor maps a value from 70 to 100 to a color between #ff0000 (red) and #00ff00 (green).
@@ -330,14 +330,13 @@ func init() {
 
 // Function to render an HTML page with a table
 // Header for arrange the genome id
-func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request types.ClusterSearchRequest, totalPage int) error {
+func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request request.ClusterSearchRequest, totalPage int) error {
 
 	genomeIDAll := ALL_GENOME_ID
 	genomeMapAll := MAP_HEADER
 	header := search_request.Genome_IDs
 	currentPage := search_request.Page
 	pageSize := search_request.Page_Size
-
 	// Create a set (map) for quick lookup of `header` (genomeIDs)
 	headerSet := make(map[string]struct{})
 	for _, id := range header {
@@ -374,7 +373,7 @@ func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request types.Cl
 		// For keep track when changing page
 		SelectedGenome: headerSet,
 		SearchText:     search_request.Search_For,
-		SearchField:    search_request.Search_Field,
+		SearchField:    search_request.Search_Field.String(),
 		CurrentPage:    currentPage,
 		TotalPage:      totalPage,
 		PageSize:       pageSize,

@@ -6,7 +6,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/yumyai/ggtable/pkg/handler/types"
+	"github.com/yumyai/ggtable/pkg/handler/request"
 )
 
 func mockInput(t testing.T) {
@@ -45,7 +45,7 @@ func TestGetGeneSequence(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	req := types.GeneGetRequest{
+	req := request.GeneGetRequest{
 		Genome_ID: "KCB09",
 		Contig_ID: "contig000007",
 		Gene_ID:   "KCB09_00064",
@@ -67,7 +67,7 @@ func TestGetRegionSequence(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	req := types.RegionGetRequest{
+	req := request.RegionGetRequest{
 		Genome_ID: "KCB09",
 		Contig_ID: "contig000007",
 		Start:     1,
@@ -91,7 +91,7 @@ func TestGetmultipleGenes(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	gene_reqs := []*types.GeneGetRequest{
+	gene_reqs := []*request.GeneGetRequest{
 		{
 			Genome_ID: "KCB09",
 			Contig_ID: "contig000007",
@@ -122,15 +122,15 @@ func TestGetMultipleRegion(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	region_reqs := []*types.RegionGetRequest{
-		&types.RegionGetRequest{
+	region_reqs := []*request.RegionGetRequest{
+		&request.RegionGetRequest{
 			Genome_ID: "KCB09",
 			Contig_ID: "contig000007",
 			Start:     1,
 			End:       20,
 			Is_Prot:   false,
 		},
-		&types.RegionGetRequest{
+		&request.RegionGetRequest{
 			Genome_ID: "KCB09",
 			Contig_ID: "contig000017",
 			Start:     200,

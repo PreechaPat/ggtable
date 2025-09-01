@@ -9,88 +9,88 @@ import (
 	"strings"
 
 	"github.com/yumyai/ggtable/logger"
-	"github.com/yumyai/ggtable/pkg/handler/types"
+	"github.com/yumyai/ggtable/pkg/handler/request"
 	"go.uber.org/zap"
 )
 
 // Group gene cluster from query into the same id
-func groupGeneClusterByID(clusterQueries []*ClusterQuery) map[string]*Cluster {
-	clustersMap := make(map[string]*Cluster)
+// func groupGeneClusterByID(clusterQueries []*ClusterQuery) map[string]*Cluster {
+// 	clustersMap := make(map[string]*Cluster)
 
-	for _, clusterQuery := range clusterQueries {
-		clusterID := clusterQuery.ClusterProperty.ClusterID
-		if clusterQuery == nil || clusterID == "" || clusterQuery.genome_id == "" {
-			continue // Skip invalid or incomplete ClusterQuery
-		}
+// 	for _, clusterQuery := range clusterQueries {
+// 		clusterID := clusterQuery.ClusterProperty.ClusterID
+// 		if clusterQuery == nil || clusterID == "" || clusterQuery.genome_id == "" {
+// 			continue // Skip invalid or incomplete ClusterQuery
+// 		}
 
-		if _, exists := clustersMap[clusterID]; !exists {
-			clustersMap[clusterID] = &Cluster{
-				ClusterProperty: clusterQuery.ClusterProperty,
-				Genomes:         make(map[string]*Genome),
-			}
-		}
+// 		if _, exists := clustersMap[clusterID]; !exists {
+// 			clustersMap[clusterID] = &Cluster{
+// 				ClusterProperty: clusterQuery.ClusterProperty,
+// 				Genomes:         make(map[string]*Genome),
+// 			}
+// 		}
 
-		if _, exists := clustersMap[clusterID].Genomes[clusterQuery.genome_id]; !exists {
-			clustersMap[clusterID].Genomes[clusterQuery.genome_id] = &Genome{
-				Genes:   make([]*Gene, 0),
-				Regions: make([]*Region, 0),
-			}
-		}
+// 		if _, exists := clustersMap[clusterID].Genomes[clusterQuery.genome_id]; !exists {
+// 			clustersMap[clusterID].Genomes[clusterQuery.genome_id] = &Genome{
+// 				Genes:   make([]*Gene, 0),
+// 				Regions: make([]*Region, 0),
+// 			}
+// 		}
 
-		currentGenome := clustersMap[clusterID].Genomes[clusterQuery.genome_id]
-		if currentGenome == nil {
-			return nil // Handle nil error
-		}
+// 		currentGenome := clustersMap[clusterID].Genomes[clusterQuery.genome_id]
+// 		if currentGenome == nil {
+// 			return nil // Handle nil error
+// 		}
 
-		region := &Region{
-			GenomeID: clusterQuery.genome_id,
-			ContigID: clusterQuery.contig_id,
-			Start:    clusterQuery.start_location,
-			End:      clusterQuery.end_location,
-		}
+// 		region := &Region{
+// 			GenomeID: clusterQuery.genome_id,
+// 			ContigID: clusterQuery.contig_id,
+// 			Start:    clusterQuery.start_location,
+// 			End:      clusterQuery.end_location,
+// 		}
 
-		if clusterQuery.match == "gene" {
-			g := Gene{
-				GeneID:       clusterQuery.gene_id,
-				Completeness: clusterQuery.completeness,
-				Region:       region,
-				Description:  clusterQuery.gene_description,
-			}
-			currentGenome.Genes = append(currentGenome.Genes, &g)
-		} else if clusterQuery.match == "region" {
-			currentGenome.Regions = append(currentGenome.Regions, region)
-		}
-	}
+// 		if clusterQuery.match == "gene" {
+// 			g := Gene{
+// 				GeneID:       clusterQuery.gene_id,
+// 				Completeness: clusterQuery.completeness,
+// 				Region:       region,
+// 				Description:  clusterQuery.gene_description,
+// 			}
+// 			currentGenome.Genes = append(currentGenome.Genes, &g)
+// 		} else if clusterQuery.match == "region" {
+// 			currentGenome.Regions = append(currentGenome.Regions, region)
+// 		}
+// 	}
 
-	return clustersMap
-}
+// 	return clustersMap
+// }
 
 // Convert ClusterQuery into array of cluster struct
 // Use in old queries
-func arrangeClusterData(clusterQueries []*ClusterQuery) []*Cluster {
+// func arrangeClusterData(clusterQueries []*ClusterQuery) []*Cluster {
 
-	clusterMap := groupGeneClusterByID(clusterQueries)
+// 	clusterMap := groupGeneClusterByID(clusterQueries)
 
-	// Convert map to slice by cluster_id order
-	var keys []string
-	for cluster_id := range clusterMap {
-		keys = append(keys, cluster_id)
-	}
-	// Sort the cluster_id
-	sort.Strings(keys)
+// 	// Convert map to slice by cluster_id order
+// 	var keys []string
+// 	for cluster_id := range clusterMap {
+// 		keys = append(keys, cluster_id)
+// 	}
+// 	// Sort the cluster_id
+// 	sort.Strings(keys)
 
-	// Iterate over the sorted cluster_id and append the corresponding values to clusters
-	var clusters []*Cluster
-	for _, key := range keys {
-		clusters = append(clusters, clusterMap[key])
-	}
+// 	// Iterate over the sorted cluster_id and append the corresponding values to clusters
+// 	var clusters []*Cluster
+// 	for _, key := range keys {
+// 		clusters = append(clusters, clusterMap[key])
+// 	}
 
-	return clusters
+// 	return clusters
 
-}
+// }
 
 // Main search function for cluster search
-func searchClusterByProp(db *sql.DB, searchRequest types.ClusterSearchRequest) ([]*Cluster, error) {
+func searchClusterByProp(db *sql.DB, searchRequest request.ClusterSearchRequest) ([]*Cluster, error) {
 	ctx := context.TODO()
 
 	// Create temporary tables for filtering
@@ -110,13 +110,13 @@ func searchClusterByProp(db *sql.DB, searchRequest types.ClusterSearchRequest) (
 	// Filter cluster
 	clusterFilterDescription := ""
 
-	switch search_field := searchRequest.Search_Field; search_field {
+	switch searchRequest.Search_Field {
 
-	case "function":
+	case request.ClusterFieldFunction:
 		clusterFilterDescription = "gc.function_description LIKE ?"
-	case "cog":
+	case request.ClusterFieldCOG:
 		clusterFilterDescription = "gc.cog_id LIKE ?"
-	case "cluster_id":
+	case request.ClusterFieldClusterID:
 		clusterFilterDescription = "gc.cluster_id LIKE ?"
 	default:
 		logger.Error("error in query section")
@@ -312,88 +312,172 @@ func searchClusterByProp(db *sql.DB, searchRequest types.ClusterSearchRequest) (
 	return results, nil
 }
 
-// Getting all available cluster
-func getAllClusters(db *sql.DB, searchParams types.ClusterSearchRequest) ([]*ClusterQuery, error) {
-
+// Getting all available clusters (no filters), grouped like searchClusterByProp
+func getAllClusters(db *sql.DB, searchParams request.ClusterSearchRequest) ([]*Cluster, error) {
 	ctx := context.TODO()
 
-	qstring := `
+	limit := searchParams.Page_Size
+	offset := (searchParams.Page - 1) * searchParams.Page_Size
+
+	// Page/window of clusters to consider
+	// Note: No temp tables; this mirrors searchClusterByProp’s shape.
+	withVT := `
 		WITH vt AS (
-		SELECT gc.cluster_id, gc.cog_id, gc.representative_gene, gc.expected_length, gc.function_description
-		FROM gene_clusters gc
-		ORDER BY gc.cluster_id
-		LIMIT ? OFFSET ?
-	),
-	matches AS (
-		SELECT gm.cluster_id, 'gene' AS match, gm.genome_id, gm.contig_id, gm.gene_id,
-		       100.0 * gi.gene_length / vt.expected_length AS completeness,
-		       gi.start_location, gi.end_location, '' AS gene_description
+			SELECT gc.cluster_id, gc.cog_id, gc.expected_length, gc.function_description, gc.representative_gene
+			FROM gene_clusters gc
+			ORDER BY gc.cluster_id
+			LIMIT ? OFFSET ?
+		)
+	`
+
+	geneQuery := withVT + `
+		SELECT
+			vt.cluster_id, vt.cog_id, vt.expected_length, vt.function_description,
+			COALESCE(
+				json_group_array(
+					json_object(
+						'gene_id', gm.gene_id,
+						'completeness', ROUND(100.0 * gi.gene_length / vt.expected_length, 2),
+						'description', gi.description,
+						'region', json_object(
+							'genome_id', gm.genome_id,
+							'contig_id', gm.contig_id,
+							'start', gi.start_location,
+							'end', gi.end_location
+						)
+					)
+				),
+				json('[]')
+			) AS genes
 		FROM vt
 		LEFT JOIN gene_matches gm ON vt.cluster_id = gm.cluster_id
 		LEFT JOIN gene_info gi ON gm.gene_id = gi.gene_id AND gm.genome_id = gi.genome_id
-		UNION ALL
-		SELECT rm.cluster_id, 'region' AS match, rm.genome_id, rm.contig_id, '' AS gene_id,
-		       -1.0 AS completeness, rm.start_location, rm.end_location, '' AS gene_description
+		GROUP BY vt.cluster_id, vt.cog_id, vt.expected_length, vt.function_description;
+	`
+
+	regionQuery := withVT + `
+		SELECT
+			vt.cluster_id, vt.cog_id, vt.expected_length, vt.function_description,
+			COALESCE(
+				json_group_array(
+					json_object(
+						'genome_id', rm.genome_id,
+						'contig_id', rm.contig_id,
+						'start', rm.start_location,
+						'end', rm.end_location
+					)
+				),
+				json('[]')
+			) AS regions
 		FROM vt
 		LEFT JOIN region_matches rm ON vt.cluster_id = rm.cluster_id
-	)
-	SELECT vt.cluster_id, vt.cog_id, vt.expected_length, vt.function_description, vt.representative_gene,
-	       match, matches.genome_id, matches.contig_id, matches.gene_id,
-	       matches.completeness, matches.start_location, matches.end_location, matches.gene_description
-	FROM vt
-	LEFT JOIN matches ON vt.cluster_id = matches.cluster_id;
+		GROUP BY vt.cluster_id, vt.cog_id, vt.expected_length, vt.function_description;
 	`
-	page_size := searchParams.Page_Size
-	page := searchParams.Page
 
-	stm, err := db.PrepareContext(ctx, qstring)
+	// Execute gene aggregation
+	geneRows, err := db.QueryContext(ctx, geneQuery, limit, offset)
 	if err != nil {
-		logger.Error("Failed to prepare SQL statement",
-			zap.Error(err),
-			zap.String("query", qstring)) // Log the full query string
-		return nil, err
+		return nil, fmt.Errorf("gene query execution failed: %w", err)
 	}
-	defer stm.Close()
+	defer geneRows.Close()
 
-	// Search term, limit, offset
-	// Use 1 as a first
-	limit := page_size
-	offset := (page - 1) * page_size
-	rows, err := stm.QueryContext(ctx, limit, offset)
-	if err != nil {
-		logger.Error("Failed to execute SQL query",
-			zap.Error(err),
-			zap.String("query", qstring), // Log the full query string again
-			zap.Int("limit", limit),      // Log the parameters used
-			zap.Int("offset", offset))
-		return nil, err
-	}
-	defer rows.Close()
+	clusterMap := make(map[string]*Cluster)
+	for geneRows.Next() {
+		var genesJSON string
+		var prop ClusterProperty
 
-	var results []*ClusterQuery
-
-	for rows.Next() {
-
-		var cluster ClusterQuery
-		err := rows.Scan(
-			&cluster.ClusterProperty.ClusterID, &cluster.ClusterProperty.CogID, &cluster.ClusterProperty.ExpectedLength,
-			&cluster.ClusterProperty.FunctionDescription, &cluster.ClusterProperty.RepresentativeGene,
-			&cluster.match, &cluster.genome_id, &cluster.contig_id, &cluster.gene_id,
-			&cluster.completeness, &cluster.start_location, &cluster.end_location, &cluster.gene_description,
-		)
-		if err != nil {
-			logger.Error("Failed to scan row into ClusterQuery struct",
-				zap.Error(err),
-				zap.String("query", qstring), // Log the query to know which query it was
-				zap.Any("current_row_data_attempt", map[string]interface{}{ // Attempt to log current row data (might be tricky for Scan errors, but useful for context)
-					"limit":  limit,
-					"offset": offset,
-				}))
-			return nil, err
+		if err := geneRows.Scan(&prop.ClusterID, &prop.CogID, &prop.ExpectedLength, &prop.FunctionDescription, &genesJSON); err != nil {
+			return nil, fmt.Errorf("failed to scan gene row: %w", err)
 		}
 
-		results = append(results, &cluster)
+		cid := prop.ClusterID
+		if _, ok := clusterMap[cid]; !ok {
+			clusterMap[cid] = &Cluster{
+				ClusterProperty: prop,
+				Genomes:         map[string]*Genome{},
+			}
+		}
 
+		// genesJSON is guaranteed to be a JSON array (possibly empty) due to COALESCE(json('[]'))
+		var genes []*Gene
+		if err := json.Unmarshal([]byte(genesJSON), &genes); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal genes: %w", err)
+		}
+
+		for _, g := range genes {
+			if g == nil || g.Region == nil {
+				continue
+			}
+			genomeID := g.Region.GenomeID
+			if _, exists := clusterMap[cid].Genomes[genomeID]; !exists {
+				clusterMap[cid].Genomes[genomeID] = &Genome{
+					Genes:   []*Gene{},
+					Regions: []*Region{},
+				}
+			}
+			clusterMap[cid].Genomes[genomeID].Genes = append(clusterMap[cid].Genomes[genomeID].Genes, g)
+		}
+	}
+	if err := geneRows.Err(); err != nil {
+		return nil, fmt.Errorf("gene rows error: %w", err)
+	}
+
+	// Execute region aggregation
+	regionRows, err := db.QueryContext(ctx, regionQuery, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("region query execution failed: %w", err)
+	}
+	defer regionRows.Close()
+
+	for regionRows.Next() {
+		var regionsJSON string
+		var prop ClusterProperty
+
+		if err := regionRows.Scan(&prop.ClusterID, &prop.CogID, &prop.ExpectedLength, &prop.FunctionDescription, &regionsJSON); err != nil {
+			return nil, fmt.Errorf("failed to scan region row: %w", err)
+		}
+
+		cid := prop.ClusterID
+		if _, ok := clusterMap[cid]; !ok {
+			clusterMap[cid] = &Cluster{
+				ClusterProperty: prop,
+				Genomes:         map[string]*Genome{},
+			}
+		}
+
+		var regions []*Region
+		if err := json.Unmarshal([]byte(regionsJSON), &regions); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal regions: %w", err)
+		}
+
+		for _, r := range regions {
+			if r == nil {
+				continue
+			}
+			genomeID := r.GenomeID
+			if _, exists := clusterMap[cid].Genomes[genomeID]; !exists {
+				clusterMap[cid].Genomes[genomeID] = &Genome{
+					Genes:   []*Gene{},
+					Regions: []*Region{},
+				}
+			}
+			clusterMap[cid].Genomes[genomeID].Regions = append(clusterMap[cid].Genomes[genomeID].Regions, r)
+		}
+	}
+	if err := regionRows.Err(); err != nil {
+		return nil, fmt.Errorf("region rows error: %w", err)
+	}
+
+	// Deterministic ordering by cluster_id
+	keys := make([]string, 0, len(clusterMap))
+	for k := range clusterMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	results := make([]*Cluster, 0, len(keys))
+	for _, k := range keys {
+		results = append(results, clusterMap[k])
 	}
 
 	return results, nil
@@ -404,28 +488,26 @@ func getAllClusters(db *sql.DB, searchParams types.ClusterSearchRequest) ([]*Clu
 // }
 
 // Use this to separate from the search function
-func GetMainPage(db *sql.DB, search_request types.ClusterSearchRequest) ([]*Cluster, error) {
+func GetMainPage(db *sql.DB, search_request request.ClusterSearchRequest) ([]*Cluster, error) {
 
-	gene_result, query_err := getAllClusters(db, search_request)
+	res, query_err := getAllClusters(db, search_request)
 
 	if query_err != nil {
 		return nil, query_err
 	}
 
 	// If nothing return, make a zero array so encoder doesn't crash.
-	if len(gene_result) == 0 {
+	if len(res) == 0 {
 		ret := make([]*Cluster, 0)
 		return ret, nil
 	}
-
-	res := arrangeClusterData(gene_result)
 
 	return res, nil
 
 }
 
 // Search for gene cluster based on request
-func SearchGeneCluster(db *sql.DB, search_request types.ClusterSearchRequest) ([]*Cluster, error) {
+func SearchGeneCluster(db *sql.DB, search_request request.ClusterSearchRequest) ([]*Cluster, error) {
 
 	gene_result, query_err := searchClusterByProp(db, search_request)
 
@@ -444,7 +526,7 @@ func SearchGeneCluster(db *sql.DB, search_request types.ClusterSearchRequest) ([
 }
 
 // Count how many row this query will return. Use for calc the number of return page.
-func CountRowByQuery(db *sql.DB, searchRequest types.ClusterSearchRequest) (rownum int, err error) {
+func CountRowByQuery(db *sql.DB, searchRequest request.ClusterSearchRequest) (rownum int, err error) {
 
 	searchFor := searchRequest.Search_For
 
@@ -457,13 +539,12 @@ func CountRowByQuery(db *sql.DB, searchRequest types.ClusterSearchRequest) (rown
 
 	clusterFilterDescription := ""
 
-	switch search_field := searchRequest.Search_Field; search_field {
-
-	case "function":
+	switch searchRequest.Search_Field {
+	case request.ClusterFieldFunction:
 		clusterFilterDescription = "gc.function_description LIKE ?"
-	case "cog":
+	case request.ClusterFieldCOG:
 		clusterFilterDescription = "gc.cog_id LIKE ?"
-	case "cluster_id":
+	case request.ClusterFieldClusterID:
 		clusterFilterDescription = "gc.cluster_id LIKE ?"
 	default:
 		logger.Error("error in query section")

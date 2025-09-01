@@ -10,12 +10,12 @@ import (
 	"github.com/yumyai/ggtable/logger"
 	"github.com/yumyai/ggtable/pkg/model"
 
-	"github.com/yumyai/ggtable/pkg/handler/types"
+	"github.com/yumyai/ggtable/pkg/handler/request"
 )
 
 func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) {
 
-	var req types.BlastSearchRequest
+	var req request.BlastSearchRequest
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -45,7 +45,7 @@ func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func processBlastSearch(dbctx *DBContext, req types.BlastSearchRequest) map[string]interface{} {
+func processBlastSearch(dbctx *DBContext, req request.BlastSearchRequest) map[string]interface{} {
 
 	var result map[string]interface{}
 
@@ -94,7 +94,7 @@ func (dbctx *DBContext) BlastNRedirectPage(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Create region request
-	req := types.RegionGetRequest{
+	req := request.RegionGetRequest{
 		Genome_ID: genome_id,
 		Contig_ID: contig_id,
 		Start:     start_loc,
@@ -132,7 +132,7 @@ func (dbctx *DBContext) BlastPRedirectPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	req := types.GeneGetRequest{
+	req := request.GeneGetRequest{
 		Genome_ID: genome_id,
 		Contig_ID: contig_id,
 		Gene_ID:   gene_id,

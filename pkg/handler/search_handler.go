@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/yumyai/ggtable/logger"
-	"github.com/yumyai/ggtable/pkg/handler/types"
+	"github.com/yumyai/ggtable/pkg/handler/request"
 	"github.com/yumyai/ggtable/pkg/model"
 	"go.uber.org/zap"
 )
@@ -101,9 +101,9 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 		zap.String("url", r.URL.Path),
 		zap.Int("Pagesize", pageSize))
 
-	var search_request = types.ClusterSearchRequest{
+	var search_request = request.ClusterSearchRequest{
 		Search_For:   searchTerm,
-		Search_Field: searchBy,
+		Search_Field: request.NewClusterField(searchBy),
 		Page:         currentPage,
 		Page_Size:    pageSize,
 		Genome_IDs:   includeGenome,
@@ -138,9 +138,9 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		zap.String("url", r.URL.Path),
 		zap.Int("page", pageNum))
 
-	var search_request = types.ClusterSearchRequest{
+	var search_request = request.ClusterSearchRequest{
 		Search_For:   "",
-		Search_Field: "function",
+		Search_Field: request.NewClusterField("function"),
 		Page:         pageNum,
 		Page_Size:    PAGE_SIZE,
 		Genome_IDs:   model.ALL_GENOME_ID, // Default to all genomes

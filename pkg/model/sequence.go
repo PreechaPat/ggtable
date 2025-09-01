@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	ggdb "github.com/yumyai/ggtable/pkg/db"
-	"github.com/yumyai/ggtable/pkg/handler/types"
+	"github.com/yumyai/ggtable/pkg/handler/request"
 )
 
 // Get id name map of genome
@@ -49,7 +49,7 @@ func GetGenomes(db *sql.DB) (map[string]string, error) {
 	return results, nil
 }
 
-func GetGeneSequence(seqdb *ggdb.SequenceDB, req types.GeneGetRequest) (string, error) {
+func GetGeneSequence(seqdb *ggdb.SequenceDB, req request.GeneGetRequest) (string, error) {
 
 	raw_response, err := seqdb.GetGeneSequence(req)
 
@@ -62,7 +62,7 @@ func GetGeneSequence(seqdb *ggdb.SequenceDB, req types.GeneGetRequest) (string, 
 	return ret, nil
 }
 
-func GetRegionSequence(seqdb *ggdb.SequenceDB, req types.RegionGetRequest) (string, error) {
+func GetRegionSequence(seqdb *ggdb.SequenceDB, req request.RegionGetRequest) (string, error) {
 
 	raw_response, err := seqdb.GetRegionSequence(req)
 
@@ -75,7 +75,7 @@ func GetRegionSequence(seqdb *ggdb.SequenceDB, req types.RegionGetRequest) (stri
 	return ret, nil
 }
 
-func GetMultipleGenes(seqdb *ggdb.SequenceDB, req []*types.GeneGetRequest, is_prot bool) (string, error) {
+func GetMultipleGenes(seqdb *ggdb.SequenceDB, req []*request.GeneGetRequest, is_prot bool) (string, error) {
 
 	raw_output, err := seqdb.GetMultipleGene(req, is_prot)
 
@@ -88,7 +88,7 @@ func GetMultipleGenes(seqdb *ggdb.SequenceDB, req []*types.GeneGetRequest, is_pr
 	return ret, nil
 }
 
-func GetMultipleRegions(seqdb *ggdb.SequenceDB, req []*types.RegionGetRequest) (string, error) {
+func GetMultipleRegions(seqdb *ggdb.SequenceDB, req []*request.RegionGetRequest) (string, error) {
 
 	raw_output, err := seqdb.GetMultipleRegion(req)
 
@@ -134,7 +134,7 @@ func supplyFastaHeader(input []byte, genomeMap map[string]string) *bytes.Buffer 
 }
 
 // From genome + gene, return all cluster that match.
-func GetClusterID(db *sql.DB, gene_request types.GeneGetRequest) ([]string, error) {
+func GetClusterID(db *sql.DB, gene_request request.GeneGetRequest) ([]string, error) {
 
 	ctx := context.TODO()
 

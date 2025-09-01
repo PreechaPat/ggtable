@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path"
 
-	"github.com/yumyai/ggtable/pkg/handler/types"
+	"github.com/yumyai/ggtable/pkg/handler/request"
 )
 
 // Defining possible error
@@ -68,7 +68,7 @@ func (seqdb *SequenceDB) getConcatContigNucl() string {
 	return path.Join(seqdb.Dir, "concat_sequences", "genetable_genomes.fna.gz")
 }
 
-func (seqdb *SequenceDB) GetGeneSequence(req types.GeneGetRequest) ([]byte, error) {
+func (seqdb *SequenceDB) GetGeneSequence(req request.GeneGetRequest) ([]byte, error) {
 
 	// genome_id := req.Genome_ID
 	// contig_id := req.Contig_ID
@@ -98,7 +98,7 @@ func (seqdb *SequenceDB) GetGeneSequence(req types.GeneGetRequest) ([]byte, erro
 	return output, nil
 }
 
-func (seqdb *SequenceDB) GetRegionSequence(req types.RegionGetRequest) ([]byte, error) {
+func (seqdb *SequenceDB) GetRegionSequence(req request.RegionGetRequest) ([]byte, error) {
 
 	// Use samtools to fetch data
 	// "KCB09|contig000007|KCB09_00064:50-100"
@@ -119,7 +119,7 @@ func (seqdb *SequenceDB) GetRegionSequence(req types.RegionGetRequest) ([]byte, 
 
 // Retrieves gene sequences using Samtools faidx based on multiple gene requests.
 // TODO: Consider preloading Samtools to improve responsiveness.
-func (seqdb *SequenceDB) GetMultipleGene(genereqs []*types.GeneGetRequest, is_prot bool) ([]byte, error) {
+func (seqdb *SequenceDB) GetMultipleGene(genereqs []*request.GeneGetRequest, is_prot bool) ([]byte, error) {
 
 	var geneInputBuffer bytes.Buffer
 	var all_gene_file string
@@ -153,7 +153,7 @@ func (seqdb *SequenceDB) GetMultipleGene(genereqs []*types.GeneGetRequest, is_pr
 
 }
 
-func (seqdb *SequenceDB) GetMultipleRegion(regreqs []*types.RegionGetRequest) ([]byte, error) {
+func (seqdb *SequenceDB) GetMultipleRegion(regreqs []*request.RegionGetRequest) ([]byte, error) {
 
 	var contigInputBuffer bytes.Buffer
 
@@ -181,11 +181,11 @@ func (seqdb *SequenceDB) GetMultipleRegion(regreqs []*types.RegionGetRequest) ([
 	return output, nil
 }
 
-func geneRequestToSAMrequest(req *types.GeneGetRequest) string {
+func geneRequestToSAMrequest(req *request.GeneGetRequest) string {
 	return fmt.Sprintf("%s|%s|%s", req.Genome_ID, req.Contig_ID, req.Gene_ID)
 }
 
-func regionRequestToSAMrequest(req *types.RegionGetRequest) string {
+func regionRequestToSAMrequest(req *request.RegionGetRequest) string {
 	return fmt.Sprintf("%s|%s:%d-%d", req.Genome_ID, req.Contig_ID, req.Start, req.End)
 }
 

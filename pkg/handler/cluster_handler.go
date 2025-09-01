@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/yumyai/ggtable/logger"
-	"github.com/yumyai/ggtable/pkg/handler/types"
+	"github.com/yumyai/ggtable/pkg/handler/request"
 	"github.com/yumyai/ggtable/pkg/model"
 	"go.uber.org/zap"
 )
@@ -16,7 +16,7 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 	genome := r.URL.Query().Get("genome_id")
 	gene := r.URL.Query().Get("gene_id")
 
-	genome_gene_param := types.GeneGetRequest{
+	genome_gene_param := request.GeneGetRequest{
 		Genome_ID: genome,
 		Gene_ID:   gene,
 	}
@@ -44,9 +44,9 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 	}
 
 	// TODO: Get For and field later
-	var search_request = types.ClusterSearchRequest{
+	var search_request = request.ClusterSearchRequest{
 		Search_For:   "",
-		Search_Field: "",
+		Search_Field: request.NewClusterField(""),
 		Page:         1,
 		Page_Size:    1,
 		Genome_IDs:   model.ALL_GENOME_ID,

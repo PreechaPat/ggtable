@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yumyai/ggtable/pkg/handler/types"
+	"github.com/yumyai/ggtable/pkg/handler/request"
 	"github.com/yumyai/ggtable/pkg/model"
 )
 
@@ -34,7 +34,7 @@ func (dbctx *DBContext) GetGeneSequenceHandler(w http.ResponseWriter, r *http.Re
 		http.Error(w, "is_prot need to be bool-like string", http.StatusBadRequest)
 	}
 
-	genome_gene_param := types.GeneGetRequest{
+	genome_gene_param := request.GeneGetRequest{
 		Genome_ID: genome_id,
 		Contig_ID: contig_id,
 		Gene_ID:   gene_id,
@@ -73,7 +73,7 @@ func (dbctx *DBContext) GetRegionSequenceHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	region_gene_param := types.RegionGetRequest{
+	region_gene_param := request.RegionGetRequest{
 		Genome_ID: genome_id,
 		Contig_ID: contig_id,
 		Start:     start,
@@ -119,11 +119,11 @@ func (dbctx *DBContext) GetSequenceByClusterIDHandler(w http.ResponseWriter, r *
 	}
 
 	// Build request
-	gene_request := make([]*types.GeneGetRequest, 0, 20)
+	gene_request := make([]*request.GeneGetRequest, 0, 20)
 	// is_prot doesn't use here.
 	for _, genome := range cluster_info.Genomes {
 		for _, gene := range genome.Genes {
-			req := &types.GeneGetRequest{
+			req := &request.GeneGetRequest{
 				Genome_ID: gene.Region.GenomeID,
 				Contig_ID: gene.Region.ContigID,
 				Gene_ID:   gene.GeneID,
@@ -140,13 +140,13 @@ func (dbctx *DBContext) GetSequenceByClusterIDHandler(w http.ResponseWriter, r *
 
 	// Only call this if it is not protein
 	if !is_prot {
-		region_request := make([]*types.RegionGetRequest, 0, 50)
+		region_request := make([]*request.RegionGetRequest, 0, 50)
 
 		// is_prot doesn't get used here.
 		for _, genome := range cluster_info.Genomes {
 			for _, region := range genome.Regions {
 				// TODO: Some region doesn't have define location, filter that out
-				req := &types.RegionGetRequest{
+				req := &request.RegionGetRequest{
 					Genome_ID: region.GenomeID,
 					Contig_ID: region.ContigID,
 					Start:     uint64(region.Start),
