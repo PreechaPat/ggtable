@@ -17,28 +17,6 @@ import (
 // Organize the DB connection
 // https://www.alexedwards.net/blog/organising-database-access
 
-// var (
-// 	HEADER []string = []string{
-// 		"CBS57885", "CBS57985", "CBS57785", "CBS57585", "CBS57385", "CBS57385m",
-// 		"EQ25", "EQ04", "CAO", "EQ10", "EQ09", "EQ05",
-// 		"ATCC200269", "P45BR", "CBS101555", "PINS", "PIS", "PINSPB",
-// 		"P41NK", "CBS67385", "P44TW", "46P211CM", "P47ZG", "46P213L8",
-// 		"RT01", "RT02", "SIMI2989", "SIMI7873", "KCB07", "CBS101039",
-// 		"P16PC", "KCB02", "P36SW", "P53LD", "P40KJ", "CU43150",
-// 		"SIMI91646", "M29", "P39KP", "MCC18", "59P211AT", "CR02",
-// 		"SIMI452345", "46P214L10", "P50PR", "KCB05", "KCB06", "P42PT",
-// 		"SIMI8727", "P15ON", "P34UM", "RM902", "MCC5", "SIMI18093",
-// 		"P38WA", "ATCC28251", "ATCC64221", "46P212L4", "SIMI769548", "P52WN",
-// 		"P46EP", "P211", "P48DZ", "MCC13", "MCC13m", "MCC17",
-// 		"SIMI4763", "KCB01", "KCB03", "KCB08", "KCB09", "P43SY",
-// 		"SIMI330644", "SIMI292145", "ATCC90586", "PARR", "RM906", "RCB01",
-// 		"ATCC32230", "PAPH", "PINF", "PPAR", "PCAP", "PRAM",
-// 		"PCIN", "PSOJ", "HARA", "PVEX", "PIRR", "PIWA",
-// 		"PULT", "LGIG", "SDEC", "SPAR", "AAST", "AINV",
-// 		"CBS134681", "ACAN", "ALAI", "PTRI", "TPSE",
-// 	}
-// )
-
 // Response struct to hold the payload and page number
 type ClustersPayload struct {
 	Cluster   interface{} `json:"clusters"`
@@ -61,10 +39,14 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 
 	searchTerm := r.URL.Query().Get("search")
 	searchBy := r.URL.Query().Get("search_by")
+	searchByF := request.NewClusterField(searchBy)
+
 	orderBy := r.URL.Query().Get("order_by")
 	if orderBy == "" {
 		orderBy = "cluster_id"
 	}
+
+	orderByF := request.NewClusterField(orderBy)
 	pageNumStr := r.URL.Query().Get("page")
 	pageSizeStr := r.URL.Query().Get("page_size")
 	currentPage, _ := strconv.Atoi(pageNumStr)
@@ -99,11 +81,14 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	logger.Debug("Running search",
 		zap.String("searchterm", searchTerm),
 		zap.String("url", r.URL.Path),
-		zap.Int("Pagesize", pageSize))
+		zap.Int("Pagesize", pageSize),
+		zap.String("order_by", orderByF.String()),
+	)
 
 	var search_request = request.ClusterSearchRequest{
 		Search_For:   searchTerm,
-		Search_Field: request.NewClusterField(searchBy),
+		Search_Field: searchByF,
+		Order_By:     orderByF,
 		Page:         currentPage,
 		Page_Size:    pageSize,
 		Genome_IDs:   includeGenome,
@@ -122,7 +107,7 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// Main page query everything.
+// Main page queries everything.
 func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 
 	PAGE_SIZE := 100
@@ -130,17 +115,28 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 	pageNumStr := r.URL.Query().Get("page")
 	pageNum, _ := strconv.Atoi(pageNumStr)
 
+	orderBy := r.URL.Query().Get("order_by")
+	if orderBy == "" {
+		orderBy = "cluster_id"
+	}
+
+	orderByF := request.NewClusterField(orderBy)
+
 	if pageNum == 0 {
 		pageNum = 1
 	}
 
 	logger.Info("Running mainpage",
 		zap.String("url", r.URL.Path),
-		zap.Int("page", pageNum))
+		zap.Int("page", pageNum),
+		zap.Int("page_size", PAGE_SIZE),
+		zap.String("order_by", orderByF.String()),
+	)
 
 	var search_request = request.ClusterSearchRequest{
 		Search_For:   "",
-		Search_Field: request.NewClusterField("function"),
+		Search_Field: request.ClusterFieldFunction,
+		Order_By:     orderByF,
 		Page:         pageNum,
 		Page_Size:    PAGE_SIZE,
 		Genome_IDs:   model.ALL_GENOME_ID, // Default to all genomes

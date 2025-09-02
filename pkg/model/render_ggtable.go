@@ -146,28 +146,37 @@ func init() {
 
 	searchForm1 := `
 	{{ define "searchForm1"}}
-		<form id="searchForm">
-			<label for="search"></label>
-			<div class="form-row">
-				<label>Search by:<select name="search_by" id="search_by">
-					<option value="function"   {{if eq .SearchField "function"}}selected{{end}}>Function</option>
-					<option value="cog"        {{if eq .SearchField "cog"}}selected{{end}}>COG</option>
-					<option value="cluster_id" {{if eq .SearchField "cluster_id"}}selected{{end}}>Cluster ID</option>
-				</select></label>
-				<input type="text" name="search" placeholder="In" value="{{.SearchText}}"></input>
-			</div>
-			<label>Page Size:<select name="page_size" id="page_size">
-				<option value=50 {{if eq .PageSize 50}}selected{{end}}>50</option>
-				<option value=100 {{if eq .PageSize 100}}selected{{end}}>100</option>
-				<option value=250 {{if eq .PageSize 250}}selected{{end}}>250</option>
-				<option value=500 {{if eq .PageSize 500}}selected{{end}}>500</option>
-			</select></label>
-			<input type="hidden" name="page" value=1></input>
-			{{template "filterByGenome" .}}
-			{{template "filterByGene" .}}
-			<input type="submit" formaction="/search" formmethod="GET" value="Search"></input>
-		</form>
-	{{end}}
+  <form id="searchForm" action="/search" method="GET">
+    <label for="search"></label>
+    <div class="form-row">
+      <label>Search by:<select name="search_by" id="search_by">
+        <option value="function"   {{if eq .SearchField "function"}}selected{{end}}>Function</option>
+        <option value="cog_id"        {{if eq .SearchField "cog_id"}}selected{{end}}>COG</option>
+        <option value="cluster_id" {{if eq .SearchField "cluster_id"}}selected{{end}}>Cluster ID</option>
+      </select></label>
+	  <input type="text" name="search" placeholder="Search goes here"value="{{.SearchText}}"></input>
+	    <input type="submit" value="Search"></input>
+    </div>
+	<div>
+	<label>Page Size:
+	<select name="page_size" id="page_size">
+      <option value=50  {{if eq .PageSize 50}}selected{{end}}>50</option>
+      <option value=100 {{if eq .PageSize 100}}selected{{end}}>100</option>
+      <option value=250 {{if eq .PageSize 250}}selected{{end}}>250</option>
+      <option value=500 {{if eq .PageSize 500}}selected{{end}}>500</option>
+    </select>
+	</label>
+	</div>
+    <!-- Remember page number, order by and order direction -->
+    <input type="hidden" name="page" id="page" value="{{.CurrentPage}}"></input>
+    <input type="hidden" name="order_by" id="order_by" value={{.OrderBy}}></input>
+    <input type="hidden" name="order_dir" id="order_dir" value="asc"></input>
+
+    {{template "filterByGenome" .}}
+    {{template "filterByGene" .}}
+
+  </form>
+{{end}}
 	`
 
 	searchBLAST := `
@@ -228,10 +237,10 @@ func init() {
 	{{define "table"}}
 		<table class="genetable" border="1">
 			<tr>
-				<th>Cluster ID</th>
-				<th>CogID</th>
-				<th>Expected Length</th>
-				<th class="col-func">Function Description</th>
+			<th><a href="javascript:void(0)" onclick="updateForm({order_by: 'cluster_id'})">Cluster ID</a></th>
+			<th><a href="javascript:void(0)" onclick="updateForm({order_by: 'cog_id'})">CogID</a></th>
+			<th>Expected Length</th>
+			<th class="col-func"><a href="javascript:void(0)" onclick="updateForm({order_by: 'function'})">Function Description</a></th>
 				{{range .SelectedGenomeIDs}}<th class="rotate-text">{{index $.GenomeNames .}}</th>{{end}}
 			</tr>
 			{{range .Rows}}
@@ -292,13 +301,13 @@ func init() {
 	<div class="pagination">
 		<div>Total page: {{.TotalPage}}</div>
 		{{if gt .CurrentPage 1}}
-			<a href="javascript:void(0);" onclick="updatePage({{sub .CurrentPage 1}}, )">&lt;&lt; prev</a>
+			<a href="javascript:void(0);" onclick="updateForm({page: {{sub .CurrentPage 1}}})">&lt;&lt; prev</a>
 		{{else}}
 			<span>&lt;&lt; prev</span>
 		{{end}}
 		<span>{{.CurrentPage}} / {{.TotalPage}}</span>
 		{{if lt .CurrentPage .TotalPage}}
-			<a href="javascript:void(0);" onclick="updatePage({{add .CurrentPage 1}})">next &gt;&gt;</a>
+			<a href="javascript:void(0);" onclick="updateForm({page: {{add .CurrentPage 1}}})">next &gt;&gt;</a>
 		{{else}}
 			<span>next &gt;&gt;</span>
 		{{end}}
@@ -337,7 +346,7 @@ func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request request.
 	header := search_request.Genome_IDs
 	currentPage := search_request.Page
 	pageSize := search_request.Page_Size
-	// Create a set (map) for quick lookup of `header` (genomeIDs)
+	orderBy := search_request.Order_By.String()
 	headerSet := make(map[string]struct{})
 	for _, id := range header {
 		headerSet[id] = struct{}{}
@@ -358,10 +367,10 @@ func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request request.
 		AllGenomeIDs      []string
 		GenomeNames       map[string]string
 		// For keep track when changing page
+		OrderBy        string
 		SelectedGenome map[string]struct{}
 		SearchText     string
 		SearchField    string
-		GenomeChecked  map[string]bool
 		CurrentPage    int
 		TotalPage      int
 		PageSize       int
@@ -371,6 +380,7 @@ func RenderClustersAsTable(w io.Writer, rows []*Cluster, search_request request.
 		AllGenomeIDs:      genomeIDAll,
 		GenomeNames:       genomeMapAll,
 		// For keep track when changing page
+		OrderBy:        orderBy,
 		SelectedGenome: headerSet,
 		SearchText:     search_request.Search_For,
 		SearchField:    search_request.Search_Field.String(),

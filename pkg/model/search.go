@@ -13,84 +13,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// Group gene cluster from query into the same id
-// func groupGeneClusterByID(clusterQueries []*ClusterQuery) map[string]*Cluster {
-// 	clustersMap := make(map[string]*Cluster)
-
-// 	for _, clusterQuery := range clusterQueries {
-// 		clusterID := clusterQuery.ClusterProperty.ClusterID
-// 		if clusterQuery == nil || clusterID == "" || clusterQuery.genome_id == "" {
-// 			continue // Skip invalid or incomplete ClusterQuery
-// 		}
-
-// 		if _, exists := clustersMap[clusterID]; !exists {
-// 			clustersMap[clusterID] = &Cluster{
-// 				ClusterProperty: clusterQuery.ClusterProperty,
-// 				Genomes:         make(map[string]*Genome),
-// 			}
-// 		}
-
-// 		if _, exists := clustersMap[clusterID].Genomes[clusterQuery.genome_id]; !exists {
-// 			clustersMap[clusterID].Genomes[clusterQuery.genome_id] = &Genome{
-// 				Genes:   make([]*Gene, 0),
-// 				Regions: make([]*Region, 0),
-// 			}
-// 		}
-
-// 		currentGenome := clustersMap[clusterID].Genomes[clusterQuery.genome_id]
-// 		if currentGenome == nil {
-// 			return nil // Handle nil error
-// 		}
-
-// 		region := &Region{
-// 			GenomeID: clusterQuery.genome_id,
-// 			ContigID: clusterQuery.contig_id,
-// 			Start:    clusterQuery.start_location,
-// 			End:      clusterQuery.end_location,
-// 		}
-
-// 		if clusterQuery.match == "gene" {
-// 			g := Gene{
-// 				GeneID:       clusterQuery.gene_id,
-// 				Completeness: clusterQuery.completeness,
-// 				Region:       region,
-// 				Description:  clusterQuery.gene_description,
-// 			}
-// 			currentGenome.Genes = append(currentGenome.Genes, &g)
-// 		} else if clusterQuery.match == "region" {
-// 			currentGenome.Regions = append(currentGenome.Regions, region)
-// 		}
-// 	}
-
-// 	return clustersMap
-// }
-
-// Convert ClusterQuery into array of cluster struct
-// Use in old queries
-// func arrangeClusterData(clusterQueries []*ClusterQuery) []*Cluster {
-
-// 	clusterMap := groupGeneClusterByID(clusterQueries)
-
-// 	// Convert map to slice by cluster_id order
-// 	var keys []string
-// 	for cluster_id := range clusterMap {
-// 		keys = append(keys, cluster_id)
-// 	}
-// 	// Sort the cluster_id
-// 	sort.Strings(keys)
-
-// 	// Iterate over the sorted cluster_id and append the corresponding values to clusters
-// 	var clusters []*Cluster
-// 	for _, key := range keys {
-// 		clusters = append(clusters, clusterMap[key])
-// 	}
-
-// 	return clusters
-
-// }
-
 // Main search function for cluster search
 func searchClusterByProp(db *sql.DB, searchRequest request.ClusterSearchRequest) ([]*Cluster, error) {
+
 	ctx := context.TODO()
 
 	// Create temporary tables for filtering
@@ -104,17 +29,17 @@ func searchClusterByProp(db *sql.DB, searchRequest request.ClusterSearchRequest)
 			(
 			    {{WHERE_CLUSTER_FILTER}}
             )
-			ORDER BY gc.cluster_id
+			{{ORDER_CLUSTER_BY}}
 			LIMIT ? OFFSET ?
 	`
 	// Filter cluster
-	clusterFilterDescription := ""
+	var clusterFilterDescription string
 
 	switch searchRequest.Search_Field {
 
 	case request.ClusterFieldFunction:
 		clusterFilterDescription = "gc.function_description LIKE ?"
-	case request.ClusterFieldCOG:
+	case request.ClusterFieldCOGID:
 		clusterFilterDescription = "gc.cog_id LIKE ?"
 	case request.ClusterFieldClusterID:
 		clusterFilterDescription = "gc.cluster_id LIKE ?"
@@ -123,7 +48,21 @@ func searchClusterByProp(db *sql.DB, searchRequest request.ClusterSearchRequest)
 		return nil, fmt.Errorf("no search_field")
 	}
 
-	PREPQ := strings.ReplaceAll(PREP, "{{WHERE_CLUSTER_FILTER}}", clusterFilterDescription)
+	var clusterOrderDescription string
+	switch searchRequest.Order_By {
+	case request.ClusterFieldFunction:
+		clusterOrderDescription += " ORDER BY gc.function_description"
+	case request.ClusterFieldCOGID:
+		clusterOrderDescription += " ORDER BY gc.cog_id"
+	case request.ClusterFieldClusterID:
+		clusterOrderDescription += " ORDER BY gc.cluster_id"
+	default:
+		logger.Error("error in order_by section")
+		return nil, fmt.Errorf("no order_by field")
+	}
+
+	PREPR := strings.ReplaceAll(PREP, "{{WHERE_CLUSTER_FILTER}}", clusterFilterDescription)
+	PREPQ := strings.ReplaceAll(PREPR, "{{ORDER_CLUSTER_BY}}", clusterOrderDescription)
 
 	// Prepare query arguments
 	var PREPARGS []interface{}
@@ -542,7 +481,7 @@ func CountRowByQuery(db *sql.DB, searchRequest request.ClusterSearchRequest) (ro
 	switch searchRequest.Search_Field {
 	case request.ClusterFieldFunction:
 		clusterFilterDescription = "gc.function_description LIKE ?"
-	case request.ClusterFieldCOG:
+	case request.ClusterFieldCOGID:
 		clusterFilterDescription = "gc.cog_id LIKE ?"
 	case request.ClusterFieldClusterID:
 		clusterFilterDescription = "gc.cluster_id LIKE ?"
