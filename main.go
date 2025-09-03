@@ -102,11 +102,16 @@ func run(cfg AppConfig) error {
 	seqDB := path.Join(cfg.DataDir, "db/sequence_db")
 
 	// DB connect
-	db, err := sql.Open("sqlite", sqlitePath)
+	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)", sqlitePath)
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		logger.Fatal("Cannot connect to database", zap.String("DB_LOC", sqlitePath), zap.Error(err))
 		return err
 	}
+
+	// db.SetMaxOpenConns(5)
+	// db.SetMaxIdleConns(5)
+	// db.SetConnMaxLifetime(0)
 
 	dbctx := &handler.DBContext{
 		DB:           db,

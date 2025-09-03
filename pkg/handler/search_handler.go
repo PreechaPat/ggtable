@@ -78,9 +78,10 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	// 	}
 	// }
 
-	logger.Debug("Running search",
+	logger.Info("Running searchpage",
 		zap.String("searchterm", searchTerm),
 		zap.String("url", r.URL.Path),
+		zap.Int("Page", currentPage),
 		zap.Int("Pagesize", pageSize),
 		zap.String("order_by", orderByF.String()),
 	)

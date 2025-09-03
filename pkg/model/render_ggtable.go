@@ -143,6 +143,7 @@ func init() {
 		</div>
 	{{end}}
 	`
+	// <option value="gene_name"  {{if eq .SearchField "gene_name"}}selected{{end}}>Gene name</option>
 
 	searchForm1 := `
 	{{ define "searchForm1"}}
@@ -151,9 +152,9 @@ func init() {
     <div class="form-row">
       <label>Search by:<select name="search_by" id="search_by">
         <option value="function"   {{if eq .SearchField "function"}}selected{{end}}>Function</option>
-        <option value="cog_id"        {{if eq .SearchField "cog_id"}}selected{{end}}>COG</option>
+        <option value="cog_id"     {{if eq .SearchField "cog_id"}}selected{{end}}>COG</option>
         <option value="cluster_id" {{if eq .SearchField "cluster_id"}}selected{{end}}>Cluster ID</option>
-      </select></label>
+	  </select></label>
 	  <input type="text" name="search" placeholder="Search goes here"value="{{.SearchText}}"></input>
 	    <input type="submit" value="Search"></input>
     </div>
