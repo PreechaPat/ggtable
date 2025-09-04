@@ -65,32 +65,43 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Apply event listener to all cells with menu
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll("td").forEach(cell => {
-        cell.addEventListener("click", function(){
-            // Find the specific menu within this cell
-            var menu = this.querySelector(".menu");
-            if (menu.style.display === "block") {
-                menu.style.display = "none";
-            } else {
-                // Hide any other open menus
-                document.querySelectorAll(".menu").forEach(m => {
-                    m.style.display = "none";
-                });
-                menu.style.display = "block";
-            }
-        });
-    });
+  // Toggle menu only when clicking the TD *outside* the menu
+  document.querySelectorAll("td").forEach(cell => {
+    cell.addEventListener("click", function(e){
+      // If the click was inside a .menu, ignore it
+      if (e.target.closest(".menu")) return;
 
-    document.querySelectorAll(".close-menu").forEach(closeLink => {
-        closeLink.addEventListener("click", function(event){
-            event.preventDefault();
-            event.stopPropagation();
-            this.closest('.menu').style.display = "none";
-        });
+      const menu = this.querySelector(".menu");
+      if (!menu) return;
+
+      const isOpen = getComputedStyle(menu).display !== "none";
+
+      // Close all menus first
+      document.querySelectorAll(".menu").forEach(m => { m.style.display = "none"; });
+
+      // Open this one if it wasn't open
+      if (!isOpen) menu.style.display = "block";
     });
+  });
+
+  // Prevent clicks inside the menu from bubbling to the TD
+  document.querySelectorAll(".menu").forEach(menu => {
+    menu.addEventListener("click", function(e){
+      e.stopPropagation();
+    });
+  });
+
+  // Close button behavior
+  document.querySelectorAll(".close-menu").forEach(closeLink => {
+    closeLink.addEventListener("click", function(event){
+      event.preventDefault();
+      event.stopPropagation();
+      this.closest('.menu').style.display = "none";
+    });
+  });
 });
 
-
+// Menu on heatmap cell
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('searchBLAST');
 

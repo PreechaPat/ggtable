@@ -120,7 +120,8 @@ func geneNameScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest
 		return err
 	}
 
-	like := "%" + req.Search_For + "%"
+	// like := "%" + req.Search_For + "%"
+	equalTO := req.Search_For
 
 	const matchedSQL = `
 		CREATE TEMPORARY TABLE matched_clusters AS
@@ -128,13 +129,13 @@ func geneNameScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest
 		FROM gene_info gi
 		JOIN gene_matches gm
 			ON gi.gene_id = gm.gene_id AND gi.genome_id = gm.genome_id
-		WHERE gi.gene_id LIKE ?
+		WHERE gi.gene_id = ?
 		  AND (
 			gm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
 			OR (SELECT COUNT(*) FROM temp_genome_ids)=0
 		  );
 	`
-	if _, err := tx.Exec(matchedSQL, like); err != nil {
+	if _, err := tx.Exec(matchedSQL, equalTO); err != nil {
 		return fmt.Errorf("create matched_clusters: %w", err)
 	}
 
@@ -229,7 +230,7 @@ func orderByExpr(field request.ClusterField) (string, error) {
  * FILL: GENES/REG
  *****************/
 
-func geneNameHydrateGenes(tx *sql.Tx, clusterMap map[string]*Cluster) error {
+func hydrateGenes(tx *sql.Tx, clusterMap map[string]*Cluster) error {
 	const q = `
 		SELECT
 			gc.cluster_id,
@@ -257,32 +258,6 @@ func geneNameHydrateGenes(tx *sql.Tx, clusterMap map[string]*Cluster) error {
 				gm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
 				OR (SELECT COUNT(*) FROM temp_genome_ids)=0
 			)
-		GROUP BY gc.cluster_id;
-	`
-	return scanGenes(tx, q, clusterMap)
-}
-
-func propHydrateGenes(tx *sql.Tx, clusterMap map[string]*Cluster) error {
-	const q = `
-		SELECT
-			gc.cluster_id, gc.cog_id, gc.expected_length, gc.function_description,
-			json_group_array(
-				json_object(
-					'gene_id', gm.gene_id,
-					'completeness', ROUND(100.0 * gi.gene_length / gc.expected_length, 2),
-					'description', gi.description,
-					'region', json_object(
-						'genome_id', gm.genome_id,
-						'contig_id', gm.contig_id,
-						'start', gi.start_location,
-						'end', gi.end_location
-					)
-				)
-			) AS genes
-		FROM unique_clusters gc
-		LEFT JOIN gene_matches gm ON gc.cluster_id = gm.cluster_id
-		LEFT JOIN gene_info gi ON gm.gene_id = gi.gene_id AND gm.genome_id = gi.genome_id
-		WHERE gm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
 		GROUP BY gc.cluster_id;
 	`
 	return scanGenes(tx, q, clusterMap)
@@ -327,7 +302,7 @@ func scanGenes(tx *sql.Tx, q string, clusterMap map[string]*Cluster) error {
 	return nil
 }
 
-func geneNameHydrateRegions(tx *sql.Tx, clusterMap map[string]*Cluster) error {
+func hydrateRegions(tx *sql.Tx, clusterMap map[string]*Cluster) error {
 	const q = `
 		SELECT
 			gc.cluster_id,
@@ -349,26 +324,6 @@ func geneNameHydrateRegions(tx *sql.Tx, clusterMap map[string]*Cluster) error {
 				rm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
 				OR (SELECT COUNT(*) FROM temp_genome_ids)=0
 			)
-		GROUP BY gc.cluster_id;
-	`
-	return scanRegions(tx, q, clusterMap)
-}
-
-func propHydrateRegions(tx *sql.Tx, clusterMap map[string]*Cluster) error {
-	const q = `
-		SELECT
-			gc.cluster_id, gc.cog_id, gc.expected_length, gc.function_description,
-			json_group_array(
-				json_object(
-					'genome_id', rm.genome_id,
-					'contig_id', rm.contig_id,
-					'start', rm.start_location,
-					'end', rm.end_location
-				)
-			) AS regions
-		FROM unique_clusters gc
-		LEFT JOIN region_matches rm ON gc.cluster_id = rm.cluster_id
-		WHERE rm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
 		GROUP BY gc.cluster_id;
 	`
 	return scanRegions(tx, q, clusterMap)
@@ -422,42 +377,39 @@ func SearchGeneCluster(db *sql.DB, req request.ClusterSearchRequest) ([]*Cluster
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	err := withTxRollback(ctx, db, &sql.TxOptions{ReadOnly: true}, func(tx *sql.Tx) error {
-		clusterMap := make(map[string]*Cluster)
+	clusterMap := make(map[string]*Cluster)
 
+	err := withTxRollback(ctx, db, &sql.TxOptions{}, func(tx *sql.Tx) error {
+
+		// Create a rowname ( cluster table id) by search then populate it later
 		if req.Search_Field == request.ClusterFieldGeneID {
 			// Gene-name path
 			if err := geneNameScaffoldUniqueClusters(tx, req); err != nil {
 				return fmt.Errorf("scaffold by gene name: %w", err)
-			}
-			if err := geneNameHydrateGenes(tx, clusterMap); err != nil {
-				return err
-			}
-			if err := geneNameHydrateRegions(tx, clusterMap); err != nil {
-				return err
 			}
 		} else {
 			// Property path
 			if err := propScaffoldUniqueClusters(tx, req); err != nil {
 				return fmt.Errorf("scaffold by prop: %w", err)
 			}
-
-			if err := propHydrateGenes(tx, clusterMap); err != nil {
-				return err
-			}
-			if err := propHydrateRegions(tx, clusterMap); err != nil {
-				return err
-			}
 		}
 
-		cl := clustersFromMapSorted(clusterMap)
-		// Preserve prior behavior: return zero-length slice (not nil) when empty.
-		if len(cl) == 0 {
-			cl = make([]*Cluster, 0)
+		if err := hydrateGenes(tx, clusterMap); err != nil {
+			return err
 		}
-		clusters = cl
+		if err := hydrateRegions(tx, clusterMap); err != nil {
+			return err
+		}
+
 		return nil
 	})
+
+	cl := clustersFromMapSorted(clusterMap)
+	// return zero-length slice (not nil) when empty.
+	if len(cl) == 0 {
+		cl = make([]*Cluster, 0)
+	}
+	clusters = cl
 	if err != nil {
 		logger.Error("Error at query", zap.String("Error", err.Error()))
 		return nil, err

@@ -154,7 +154,7 @@ func init() {
         <option value="function"   {{if eq .SearchField "function"}}selected{{end}}>Function</option>
         <option value="cog_id"     {{if eq .SearchField "cog_id"}}selected{{end}}>COG</option>
         <option value="cluster_id" {{if eq .SearchField "cluster_id"}}selected{{end}}>Cluster ID</option>
-		<option value="gene_id"  {{if eq .SearchField "gene_id"}}selected{{end}}>Gene ID</option>
+		<option value="gene_id"  {{if eq .SearchField "gene_id"}}selected{{end}}>Gene ID (exact match)</option>
 	  </select></label>
 	  <input type="text" name="search" placeholder="Search goes here"value="{{.SearchText}}"></input>
 	    <input type="submit" value="Search"></input>
