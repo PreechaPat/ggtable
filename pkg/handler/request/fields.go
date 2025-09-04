@@ -6,7 +6,7 @@ const (
 	ClusterFieldFunction ClusterField = iota
 	ClusterFieldCOGID
 	ClusterFieldClusterID
-	ClusterFieldGeneName
+	ClusterFieldGeneID
 	ClusterFieldTODO
 )
 
@@ -18,8 +18,8 @@ func (s ClusterField) String() string {
 		return "cog_id"
 	case ClusterFieldClusterID:
 		return "cluster_id"
-	case ClusterFieldGeneName:
-		return "gene_name"
+	case ClusterFieldGeneID:
+		return "gene_id"
 	case ClusterFieldTODO:
 		return "TODO"
 	default:
@@ -35,8 +35,8 @@ func NewClusterField(field string) ClusterField {
 		return ClusterFieldCOGID
 	case "cluster_id":
 		return ClusterFieldClusterID
-	case "gene_name":
-		return ClusterFieldGeneName
+	case "gene_id":
+		return ClusterFieldGeneID
 	case "TODO":
 		return ClusterFieldTODO
 	default:

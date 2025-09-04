@@ -108,7 +108,7 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// Main page queries everything.
+// Main page.
 func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 
 	PAGE_SIZE := 100
@@ -153,7 +153,9 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		return // Important: stop execution after sending error
 	}
 
-	rowNum, err := model.CountRowByQuery(dbctx.DB, search_request) // Capture the error here
+	rowNum, err := model.CountAllRow(dbctx.DB)
+
+	// rowNum, err := model.CountRowByQuery(, ) // Capture the error here
 	if err != nil {
 		logger.Error("Failed to count rows by query",
 			zap.String("url", r.URL.Path),

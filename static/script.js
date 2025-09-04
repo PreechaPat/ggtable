@@ -16,21 +16,21 @@
 
 // Re-set the value of url when changing
 // Currently used for changing page 
-function updatePage(targetPage) {
+// function updatePage(targetPage) {
 
-    const form = document.getElementById('searchForm');
-    if (!form) {
-        console.error("Form with id 'searchForm' not found.");
-        return;
-    }
-    const pageInput = form.elements.namedItem('page')
+//     const form = document.getElementById('searchForm');
+//     if (!form) {
+//         console.error("Form with id 'searchForm' not found.");
+//         return;
+//     }
+//     const pageInput = form.elements.namedItem('page')
 
-    // Set the target page
-    pageInput.value = targetPage;
+//     // Set the target page
+//     pageInput.value = targetPage;
   
-    // Submit the form
-    form.submit();
-}
+//     // Submit the form
+//     form.submit();
+// }
 
 function updateForm({page, order_by} = {}) {
   const form = document.getElementById('searchForm');
@@ -52,9 +52,16 @@ function updateForm({page, order_by} = {}) {
   form.submit();
 }
 
-// Forms
+// Make submit button always go to page 1 when searching:
+document.addEventListener('DOMContentLoaded', function () {
+  const form = document.getElementById('searchForm');
+  if (!form) return;
 
-
+  form.addEventListener('submit', function () {
+    const pageInput = form.elements.namedItem('page');
+    if (pageInput) pageInput.value = 1; // reset to first page on any new search
+  });
+});
 
 // Apply event listener to all cells with menu
 document.addEventListener('DOMContentLoaded', function() {

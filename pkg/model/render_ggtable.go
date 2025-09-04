@@ -143,7 +143,7 @@ func init() {
 		</div>
 	{{end}}
 	`
-	// <option value="gene_name"  {{if eq .SearchField "gene_name"}}selected{{end}}>Gene name</option>
+	// <option value="gene_id"  {{if eq .SearchField "gene_id"}}selected{{end}}>Gene ID</option>
 
 	searchForm1 := `
 	{{ define "searchForm1"}}
