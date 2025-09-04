@@ -97,7 +97,8 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	}
 
 	rows, _ := model.SearchGeneCluster(dbctx.DB, search_request)
-	rowNum, _ := model.CountRowByQuery(dbctx.DB, search_request)
+	rowNum, _ := model.CountSearchRow(dbctx.DB, search_request)
+
 	totalPageNum := (rowNum + pageSize - 1) / pageSize // Rounding up
 
 	err := model.RenderClustersAsTable(w, rows, search_request, totalPageNum)

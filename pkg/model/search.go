@@ -36,50 +36,6 @@ func withTxRollback(ctx context.Context, db *sql.DB, opts *sql.TxOptions, fn fun
 	return nil
 }
 
-// createBaseUniqueClusters builds an unpaginated temp table "base_unique_clusters"
-// and also writes the total row count into a single-row temp table "result_total".
-func createBaseUniqueClusters(tx *sql.Tx, baseSQL string, args ...any) error {
-	// Drop if exists to allow reuse within the same tx (idempotent-ish usage).
-	if _, err := tx.Exec(`DROP TABLE IF EXISTS base_unique_clusters;`); err != nil {
-		return fmt.Errorf("drop base_unique_clusters: %w", err)
-	}
-	if _, err := tx.Exec(`DROP TABLE IF EXISTS result_total;`); err != nil {
-		return fmt.Errorf("drop result_total: %w", err)
-	}
-
-	// Materialize the full, filtered set (no ORDER, no LIMIT/OFFSET).
-	ddl := `CREATE TEMPORARY TABLE base_unique_clusters AS ` + baseSQL
-	if _, err := tx.Exec(ddl, args...); err != nil {
-		return fmt.Errorf("create base_unique_clusters: %w", err)
-	}
-
-	// Capture total count once, cheaply reused by callers.
-	if _, err := tx.Exec(`CREATE TEMPORARY TABLE result_total AS SELECT COUNT(*) AS total FROM base_unique_clusters;`); err != nil {
-		return fmt.Errorf("create result_total: %w", err)
-	}
-
-	return nil
-}
-
-// pageFromBaseUniqueClusters builds the paginated/ordered view into "unique_clusters".
-func pageFromBaseUniqueClusters(tx *sql.Tx, orderBy string, limit, offset int) error {
-	if _, err := tx.Exec(`DROP TABLE IF EXISTS unique_clusters;`); err != nil {
-		return fmt.Errorf("drop unique_clusters: %w", err)
-	}
-
-	sql := fmt.Sprintf(`
-		CREATE TEMPORARY TABLE unique_clusters AS
-		SELECT cluster_id, cog_id, expected_length, function_description, representative_gene
-		FROM base_unique_clusters
-		ORDER BY %s
-		LIMIT ? OFFSET ?;`, orderBy)
-
-	if _, err := tx.Exec(sql, limit, offset); err != nil {
-		return fmt.Errorf("create unique_clusters: %w", err)
-	}
-	return nil
-}
-
 func cleanupTempTables(tx *sql.Tx) {
 	_, _ = tx.Exec(`DROP TABLE IF EXISTS temp_genome_ids`)
 	_, _ = tx.Exec(`DROP TABLE IF EXISTS matched_clusters`)
@@ -138,7 +94,7 @@ func clustersFromMapSorted(m map[string]*Cluster) []*Cluster {
 
 // buildTempGenomeIDs creates and (optionally) populates temp_genome_ids.
 func buildTempGenomeIDs(tx *sql.Tx, ids []string) error {
-	ddl := fmt.Sprintf(`CREATE TEMPORARY TABLE IF NOT EXISTS temp_genome_ids (genome_id TEXT);`)
+	ddl := `CREATE TEMPORARY TABLE IF NOT EXISTS temp_genome_ids (genome_id TEXT);`
 	if _, err := tx.Exec(ddl); err != nil {
 		return fmt.Errorf("create temp_genome_ids: %w", err)
 	}
@@ -205,13 +161,13 @@ func geneNameScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest
 	return nil
 }
 
-// propScaffoldUniqueClusters implements the original “scaffoldClusters” behavior.
 func propScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest) error {
-	// temp_genome_ids as INTEGER per original
-	if _, err := tx.Exec(`CREATE TEMPORARY TABLE temp_genome_ids (genome_id INTEGER);`); err != nil {
-		return fmt.Errorf("create temp_genome_ids: %w", err)
+
+	if err := buildTempGenomeIDs(tx, req.Genome_IDs); err != nil {
+		return err
 	}
 
+	// building sql query
 	where, err := whereFilterExpr(req.Search_Field)
 	if err != nil {
 		return err
@@ -238,27 +194,6 @@ func propScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest) er
 		return fmt.Errorf("create unique_clusters: %w", err)
 	}
 
-	// Populate temp_genome_ids
-	if err := populateTempGenomeIDsInteger(tx, req.Genome_IDs); err != nil {
-		return err
-	}
-	return nil
-}
-
-func populateTempGenomeIDsInteger(tx *sql.Tx, ids []string) error {
-	if len(ids) == 0 {
-		return nil
-	}
-	stmt, err := tx.Prepare(`INSERT INTO temp_genome_ids (genome_id) VALUES (?);`)
-	if err != nil {
-		return fmt.Errorf("prepare insert genome_id: %w", err)
-	}
-	defer stmt.Close()
-	for _, id := range ids {
-		if _, err := stmt.Exec(id); err != nil {
-			return fmt.Errorf("insert genome_id %q: %w", id, err)
-		}
-	}
 	return nil
 }
 
@@ -495,7 +430,6 @@ func SearchGeneCluster(db *sql.DB, req request.ClusterSearchRequest) ([]*Cluster
 			if err := geneNameScaffoldUniqueClusters(tx, req); err != nil {
 				return fmt.Errorf("scaffold by gene name: %w", err)
 			}
-
 			if err := geneNameHydrateGenes(tx, clusterMap); err != nil {
 				return err
 			}
@@ -684,35 +618,58 @@ func GetMainPage(db *sql.DB, req request.ClusterSearchRequest) ([]*Cluster, erro
  * COUNT ENDPOINTS
  *****************/
 
-func CountRowByQuery(db *sql.DB, req request.ClusterSearchRequest) (int, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+// func CountRowByQuery(db *sql.DB, req request.ClusterSearchRequest) (int, error) {
+// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// 	defer cancel()
 
-	where, err := whereFilterExpr(req.Search_Field)
-	if err != nil {
-		return 0, err
-	}
+// 	where, err := whereFilterExpr(req.Search_Field)
+// 	if err != nil {
+// 		return 0, err
+// 	}
 
-	sql := `SELECT COUNT(cluster_id) FROM gene_clusters AS gc WHERE (` + where + `)`
-	like := "%" + req.Search_For + "%"
+// 	sql := `SELECT COUNT(cluster_id) FROM gene_clusters AS gc WHERE (` + where + `)`
+// 	like := "%" + req.Search_For + "%"
 
-	var count int
-	if err := db.QueryRowContext(ctx, sql, like).Scan(&count); err != nil {
-		logger.Error("CountRowByQuery error", zap.String("err", err.Error()))
-		return 0, err
-	}
-	return count, nil
-}
+// 	var count int
+// 	if err := db.QueryRowContext(ctx, sql, like).Scan(&count); err != nil {
+// 		logger.Error("CountRowByQuery error", zap.String("err", err.Error()))
+// 		return 0, err
+// 	}
+// 	return count, nil
+// }
 
 func CountSearchRow(db *sql.DB, req request.ClusterSearchRequest) (int, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	var count int
+
 	err := withTxRollback(ctx, db, &sql.TxOptions{ReadOnly: true}, func(tx *sql.Tx) error {
 
 		if req.Search_Field == request.ClusterFieldGeneID {
 			// Gene-name path
+			if err := buildTempGenomeIDs(tx, req.Genome_IDs); err != nil {
+				return err
+			}
+
+			like := "%" + req.Search_For + "%"
+
+			const q = `
+					SELECT COUNT(DISTINCT gm.cluster_id)
+					FROM gene_info gi
+					JOIN gene_matches gm
+					ON gi.gene_id = gm.gene_id
+					AND gi.genome_id = gm.genome_id
+					WHERE gi.gene_id LIKE ?
+					AND (
+							NOT EXISTS (SELECT 1 FROM temp_genome_ids)
+							OR gm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
+						);
+					`
+			if err := tx.QueryRow(q, like).Scan(&count); err != nil {
+				return fmt.Errorf("count gene-name unique clusters: %w", err)
+			}
 
 		} else {
 			// Property path
@@ -723,7 +680,6 @@ func CountSearchRow(db *sql.DB, req request.ClusterSearchRequest) (int, error) {
 			sql := `SELECT COUNT(cluster_id) FROM gene_clusters AS gc WHERE (` + where + `)`
 			like := "%" + req.Search_For + "%"
 
-			var count int
 			if err := tx.QueryRowContext(ctx, sql, like).Scan(&count); err != nil {
 				logger.Error("CountRowByQuery error", zap.String("err", err.Error()))
 				return err
@@ -736,7 +692,7 @@ func CountSearchRow(db *sql.DB, req request.ClusterSearchRequest) (int, error) {
 		logger.Error("Error at query", zap.String("Error", err.Error()))
 		return 0, err
 	}
-	return 0, nil
+	return count, nil
 }
 
 func CountAllRow(db *sql.DB) (int, error) {
