@@ -73,7 +73,28 @@ func ensureGenome(cl *Cluster, genomeID string) *Genome {
 	return g
 }
 
-// TODO: Sort by other means than cluster_id
+func getOrderedClusterIDs(tx *sql.Tx) ([]string, error) {
+	const q = `SELECT cluster_id FROM unique_clusters ORDER BY rowid;` // rowid preserves insertion order
+	rows, err := tx.Query(q)
+	if err != nil {
+		return nil, fmt.Errorf("query ordered cluster IDs: %w", err)
+	}
+	defer rows.Close()
+
+	var orderedIDs []string
+	for rows.Next() {
+		var clusterID string
+		if err := rows.Scan(&clusterID); err != nil {
+			return nil, fmt.Errorf("scan ordered cluster ID: %w", err)
+		}
+		orderedIDs = append(orderedIDs, clusterID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("ordered cluster IDs rows err: %w", err)
+	}
+	return orderedIDs, nil
+}
+
 func clustersFromMapSorted(m map[string]*Cluster) []*Cluster {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -378,38 +399,50 @@ func SearchGeneCluster(db *sql.DB, req request.ClusterSearchRequest) ([]*Cluster
 	defer cancel()
 
 	clusterMap := make(map[string]*Cluster)
+	var orderedIDs []string
 
 	err := withTxRollback(ctx, db, &sql.TxOptions{}, func(tx *sql.Tx) error {
+
+		var err error // <- declare err in this scope
 
 		// Create a rowname ( cluster table id) by search then populate it later
 		if req.Search_Field == request.ClusterFieldGeneID {
 			// Gene-name path
-			if err := geneNameScaffoldUniqueClusters(tx, req); err != nil {
+			if err = geneNameScaffoldUniqueClusters(tx, req); err != nil {
 				return fmt.Errorf("scaffold by gene name: %w", err)
 			}
 		} else {
 			// Property path
-			if err := propScaffoldUniqueClusters(tx, req); err != nil {
+			if err = propScaffoldUniqueClusters(tx, req); err != nil {
 				return fmt.Errorf("scaffold by prop: %w", err)
 			}
 		}
 
-		if err := hydrateGenes(tx, clusterMap); err != nil {
+		if err = hydrateGenes(tx, clusterMap); err != nil {
 			return err
 		}
-		if err := hydrateRegions(tx, clusterMap); err != nil {
+		if err = hydrateRegions(tx, clusterMap); err != nil {
+			return err
+		}
+		// Get ordered cluster IDs from the temporary table
+		orderedIDs, err = getOrderedClusterIDs(tx)
+		if err != nil {
 			return err
 		}
 
 		return nil
 	})
 
-	cl := clustersFromMapSorted(clusterMap)
-	// return zero-length slice (not nil) when empty.
-	if len(cl) == 0 {
-		cl = make([]*Cluster, 0)
+	// Build the final ordered slice of clusters
+	for _, id := range orderedIDs {
+		if cl, ok := clusterMap[id]; ok {
+			clusters = append(clusters, cl)
+		}
 	}
-	clusters = cl
+	// return zero-length slice (not nil) when empty.
+	if len(clusters) == 0 {
+		clusters = make([]*Cluster, 0)
+	}
 	if err != nil {
 		logger.Error("Error at query", zap.String("Error", err.Error()))
 		return nil, err
@@ -569,26 +602,6 @@ func GetMainPage(db *sql.DB, req request.ClusterSearchRequest) ([]*Cluster, erro
 /*****************
  * COUNT ENDPOINTS
  *****************/
-
-// func CountRowByQuery(db *sql.DB, req request.ClusterSearchRequest) (int, error) {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-// 	defer cancel()
-
-// 	where, err := whereFilterExpr(req.Search_Field)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-
-// 	sql := `SELECT COUNT(cluster_id) FROM gene_clusters AS gc WHERE (` + where + `)`
-// 	like := "%" + req.Search_For + "%"
-
-// 	var count int
-// 	if err := db.QueryRowContext(ctx, sql, like).Scan(&count); err != nil {
-// 		logger.Error("CountRowByQuery error", zap.String("err", err.Error()))
-// 		return 0, err
-// 	}
-// 	return count, nil
-// }
 
 func CountSearchRow(db *sql.DB, req request.ClusterSearchRequest) (int, error) {
 
