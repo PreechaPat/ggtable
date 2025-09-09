@@ -9,6 +9,7 @@ import (
 
 	"github.com/yumyai/ggtable/logger"
 	"github.com/yumyai/ggtable/pkg/model"
+	"github.com/yumyai/ggtable/pkg/render"
 
 	"github.com/yumyai/ggtable/pkg/handler/request"
 )
@@ -41,7 +42,7 @@ func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) 
 
 	if message, ok := result["message"].(string); ok {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		model.RenderBLASTPage(w, message, req.BlastType)
+		render.RenderBLASTPage(w, message, req.BlastType)
 	}
 }
 

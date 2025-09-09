@@ -33,6 +33,34 @@
     /* Optional background for visibility */
 }
 
+/* Legend styles */
+.legend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+}
+.legend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.legend-swatch {
+    display: inline-block;
+    width: 28px;
+    height: 14px;
+    border: 1px solid #999;
+}
+.legend-swatch--wide {
+    width: 112px; /* 4x width to emphasize gradient range */
+}
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 
 /*
   Collapsible elements

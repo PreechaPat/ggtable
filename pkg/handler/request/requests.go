@@ -8,13 +8,14 @@ type BlastSearchRequest struct {
 
 // Structure for querying
 type ClusterSearchRequest struct {
-	Search_For              string       `json:"search_for"`                 // Term or keyword to search
-	Search_Field            ClusterField `json:"search_field"`               // Field to search within (e.g., gene_symbol, description)
-	Order_By                ClusterField `json:"order_by"`                   // Field to order results by (e.g., cluster_id, size)
-	Page                    int          `json:"page"`                       // Page number for pagination (starting at 1)
-	Page_Size               int          `json:"page_size"`                  // Number of results per page
-	Genome_IDs              []string     `json:"genome_ids"`                 // Genome IDs to limit the search
-	RequireGenesFromGenomes []string     `json:"require_genes_from_genomes"` // Filter: only include clusters with these genes from the specified genomes
+    Search_For              string       `json:"search_for"`                 // Term or keyword to search
+    Search_Field            ClusterField `json:"search_field"`               // Field to search within (e.g., gene_symbol, description)
+    Order_By                ClusterField `json:"order_by"`                   // Field to order results by (e.g., cluster_id, size)
+    Page                    int          `json:"page"`                       // Page number for pagination (starting at 1)
+    Page_Size               int          `json:"page_size"`                  // Number of results per page
+    Genome_IDs              []string     `json:"genome_ids"`                 // Genome IDs to limit the search
+    RequireGenesFromGenomes []string     `json:"require_genes_from_genomes"` // Filter: only include clusters with these genes from the specified genomes
+    Color_By                string       `json:"color_by"`                   // Cell coloring mode: "gene_copy_number" or "max_gene_completeness"
 }
 
 // Get gene sequence

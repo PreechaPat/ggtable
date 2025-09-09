@@ -7,6 +7,7 @@ import (
 	"github.com/yumyai/ggtable/logger"
 	"github.com/yumyai/ggtable/pkg/handler/request"
 	"github.com/yumyai/ggtable/pkg/model"
+	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
 )
 
@@ -16,10 +17,10 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 	genome := r.URL.Query().Get("genome_id")
 	gene := r.URL.Query().Get("gene_id")
 
-	genome_gene_param := request.GeneGetRequest{
-		Genome_ID: genome,
-		Gene_ID:   gene,
-	}
+    genome_gene_param := request.GeneGetRequest{
+        Genome_ID: genome,
+        Gene_ID:   gene,
+    }
 
 	logger.Debug("Searching for", zap.String("genome", genome), zap.String("gene", gene))
 
@@ -43,17 +44,30 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// TODO: Get For and field later
-	var search_request = request.ClusterSearchRequest{
-		Search_For:   "",
-		Search_Field: request.NewClusterField(""),
-		Page:         1,
-		Page_Size:    1,
-		Genome_IDs:   model.ALL_GENOME_ID,
-		// RequireGenesFromGenomes: reqGeneFromGenome,
-	}
+	// Search request is used for rendering only, no query involve here.
+    // Allow optional color mode from query with canonicalization
+    colorByRaw := r.URL.Query().Get("color_by")
+    switch colorByRaw {
+    case "gene_copy_number", "copy_number", "copies", "copy", "":
+        colorByRaw = "gene_copy_number"
+    case "max_gene_completeness", "max_completeness", "completeness":
+        colorByRaw = "max_gene_completeness"
+    default:
+        colorByRaw = "gene_copy_number"
+    }
+    colorBy := colorByRaw
 
-	err3 := model.RenderClustersAsTable(w, []*model.Cluster{cluster_prob}, search_request, 1)
+    var search_request = request.ClusterSearchRequest{
+        Search_For:   "",
+        Search_Field: request.NewClusterField(""),
+        Page:         1,
+        Page_Size:    1,
+        Genome_IDs:   model.ALL_GENOME_ID,
+        Color_By:     colorBy,
+        // RequireGenesFromGenomes: reqGeneFromGenome,
+    }
+
+	err3 := render.RenderClustersAsTable(w, []*model.Cluster{cluster_prob}, search_request, 1)
 
 	if err3 != nil {
 		fmt.Fprint(w, "ERROR")
@@ -71,7 +85,7 @@ func (dbctx *DBContext) ClusterPage(w http.ResponseWriter, r *http.Request) {
 		panic(err_query)
 	}
 
-	err := model.RenderClusterPage(w, res)
+	err := render.RenderClusterPage(w, res)
 
 	if err != nil {
 		panic(err)

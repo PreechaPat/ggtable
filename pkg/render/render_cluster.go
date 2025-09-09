@@ -1,6 +1,6 @@
 // Render HTML for viewing a cluster
 
-package model
+package render
 
 import (
 	"io"
@@ -8,6 +8,7 @@ import (
 	"text/template"
 
 	"github.com/yumyai/ggtable/logger"
+	"github.com/yumyai/ggtable/pkg/model"
 	"go.uber.org/zap"
 )
 
@@ -110,11 +111,10 @@ func init() {
 	cluster_page_template = template.New("cluster_page")
 
 	funcMap := template.FuncMap{
-		"arrangeGenome": arrangeGenome,
-		"add":           func(a, b int) int { return a + b },
-		"sub":           func(a, b int) int { return a - b },
-		"eqs":           func(a, b string) bool { return a == b },
-		"eqi":           func(a, b int) bool { return a == b },
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+		"eqs": func(a, b string) bool { return a == b },
+		"eqi": func(a, b int) bool { return a == b },
 		"hasKey": func(m map[string]struct{}, k string) bool {
 			_, ok := m[k]
 			return ok
@@ -130,9 +130,9 @@ func init() {
 }
 
 // Longest gene would be used as representative gene
-func getLongestGene(cluster *Cluster) *Gene {
+func getLongestGene(cluster *model.Cluster) *model.Gene {
 
-	var longestGene *Gene
+	var longestGene *model.Gene
 	maxLength := 0
 
 	for _, genome := range cluster.Genomes {
@@ -152,7 +152,7 @@ func getLongestGene(cluster *Cluster) *Gene {
 }
 
 // Function to render an HTML page with a table
-func RenderClusterPage(w io.Writer, cluster *Cluster) error {
+func RenderClusterPage(w io.Writer, cluster *model.Cluster) error {
 
 	logger.Info("Rendering cluster page on", zap.String("cluster-id", cluster.ClusterProperty.ClusterID))
 
@@ -174,15 +174,15 @@ func RenderClusterPage(w io.Writer, cluster *Cluster) error {
 	rep_gene := getLongestGene(cluster)
 
 	data := struct {
-		Cluster            *Cluster
-		RepresentativeGene *Gene
+		Cluster            *model.Cluster
+		RepresentativeGene *model.Gene
 		GenomeNames        map[string]string
 		TotalGenes         int
 		TotalRegions       int
 	}{
 		Cluster:            cluster,
 		RepresentativeGene: rep_gene,
-		GenomeNames:        MAP_HEADER,
+		GenomeNames:        model.MAP_HEADER,
 		TotalGenes:         totalGenes,
 		TotalRegions:       totalRegions,
 	}

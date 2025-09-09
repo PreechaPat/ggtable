@@ -8,6 +8,7 @@ import (
 	"github.com/yumyai/ggtable/logger"
 	"github.com/yumyai/ggtable/pkg/handler/request"
 	"github.com/yumyai/ggtable/pkg/model"
+	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
 )
 
@@ -41,10 +42,10 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	searchBy := r.URL.Query().Get("search_by")
 	searchByF := request.NewClusterField(searchBy)
 
-	orderBy := r.URL.Query().Get("order_by")
-	if orderBy == "" {
-		orderBy = "cluster_id"
-	}
+    orderBy := r.URL.Query().Get("order_by")
+    if orderBy == "" {
+        orderBy = "cluster_id"
+    }
 
 	orderByF := request.NewClusterField(orderBy)
 	pageNumStr := r.URL.Query().Get("page")
@@ -52,10 +53,25 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	currentPage, _ := strconv.Atoi(pageNumStr)
 	pageSize, _ := strconv.Atoi(pageSizeStr)
 
-	if pageSizeStr == "" || pageSize <= 0 {
-		logger.Error("Invalid page size, defaulting to 100")
-		pageSize = 100 // Default page size
-	}
+    if pageSizeStr == "" || pageSize <= 0 {
+        logger.Error("Invalid page size, defaulting to 100")
+        pageSize = 100 // Default page size
+    }
+
+    // Color selection canonicalization
+    // Accepted: gene_copy_number | max_gene_completeness
+    // Backward-compat: copy -> gene_copy_number, completeness -> max_gene_completeness
+    colorByRaw := r.URL.Query().Get("color_by")
+    switch colorByRaw {
+    case "gene_copy_number", "copy_number", "copies", "copy", "":
+        // default to gene_copy_number if empty
+        colorByRaw = "gene_copy_number"
+    case "max_gene_completeness", "max_completeness", "completeness":
+        colorByRaw = "max_gene_completeness"
+    default:
+        colorByRaw = "gene_copy_number"
+    }
+    colorBy := colorByRaw
 
 	// Include the following genome only
 	var includeGenome []string
@@ -78,30 +94,32 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	// 	}
 	// }
 
-	logger.Info("Running searchpage",
-		zap.String("searchterm", searchTerm),
-		zap.String("url", r.URL.Path),
-		zap.Int("Page", currentPage),
-		zap.Int("Pagesize", pageSize),
-		zap.String("order_by", orderByF.String()),
-	)
+    logger.Info("Running searchpage",
+        zap.String("searchterm", searchTerm),
+        zap.String("url", r.URL.Path),
+        zap.Int("Page", currentPage),
+        zap.Int("Pagesize", pageSize),
+        zap.String("order_by", orderByF.String()),
+        zap.String("color_by", colorBy),
+    )
 
-	var search_request = request.ClusterSearchRequest{
-		Search_For:   searchTerm,
-		Search_Field: searchByF,
-		Order_By:     orderByF,
-		Page:         currentPage,
-		Page_Size:    pageSize,
-		Genome_IDs:   includeGenome,
-		// RequireGenesFromGenomes: reqGeneFromGenome,
-	}
+    var search_request = request.ClusterSearchRequest{
+        Search_For:   searchTerm,
+        Search_Field: searchByF,
+        Order_By:     orderByF,
+        Page:         currentPage,
+        Page_Size:    pageSize,
+        Genome_IDs:   includeGenome,
+        Color_By:     colorBy,
+        // RequireGenesFromGenomes: reqGeneFromGenome,
+    }
 
 	rows, _ := model.SearchGeneCluster(dbctx.DB, search_request)
 	rowNum, _ := model.CountSearchRow(dbctx.DB, search_request)
 
 	totalPageNum := (rowNum + pageSize - 1) / pageSize // Rounding up
 
-	err := model.RenderClustersAsTable(w, rows, search_request, totalPageNum)
+	err := render.RenderClustersAsTable(w, rows, search_request, totalPageNum)
 
 	if err != nil {
 		logger.Error(err.Error())
@@ -117,10 +135,10 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 	pageNumStr := r.URL.Query().Get("page")
 	pageNum, _ := strconv.Atoi(pageNumStr)
 
-	orderBy := r.URL.Query().Get("order_by")
-	if orderBy == "" {
-		orderBy = "cluster_id"
-	}
+    orderBy := r.URL.Query().Get("order_by")
+    if orderBy == "" {
+        orderBy = "cluster_id"
+    }
 
 	orderByF := request.NewClusterField(orderBy)
 
@@ -128,21 +146,35 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		pageNum = 1
 	}
 
-	logger.Info("Running mainpage",
-		zap.String("url", r.URL.Path),
-		zap.Int("page", pageNum),
-		zap.Int("page_size", PAGE_SIZE),
-		zap.String("order_by", orderByF.String()),
-	)
+    // Color selection canonicalization
+    colorByRaw := r.URL.Query().Get("color_by")
+    switch colorByRaw {
+    case "gene_copy_number", "copy_number", "copies", "copy", "":
+        colorByRaw = "gene_copy_number"
+    case "max_gene_completeness", "max_completeness", "completeness":
+        colorByRaw = "max_gene_completeness"
+    default:
+        colorByRaw = "gene_copy_number"
+    }
+    colorBy := colorByRaw
 
-	var search_request = request.ClusterSearchRequest{
-		Search_For:   "",
-		Search_Field: request.ClusterFieldFunction,
-		Order_By:     orderByF,
-		Page:         pageNum,
-		Page_Size:    PAGE_SIZE,
-		Genome_IDs:   model.ALL_GENOME_ID, // Default to all genomes
-	}
+    logger.Info("Running mainpage",
+        zap.String("url", r.URL.Path),
+        zap.Int("page", pageNum),
+        zap.Int("page_size", PAGE_SIZE),
+        zap.String("order_by", orderByF.String()),
+        zap.String("color_by", colorBy),
+    )
+
+    var search_request = request.ClusterSearchRequest{
+        Search_For:   "",
+        Search_Field: request.ClusterFieldFunction,
+        Order_By:     orderByF,
+        Page:         pageNum,
+        Page_Size:    PAGE_SIZE,
+        Genome_IDs:   model.ALL_GENOME_ID, // Default to all genomes
+        Color_By:     colorBy,
+    }
 
 	rows, err := model.GetMainPage(dbctx.DB, search_request) // Capture the error here
 	if err != nil {
@@ -168,7 +200,7 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 
 	totalPageNum := (rowNum + PAGE_SIZE - 1) / PAGE_SIZE // To round it up instead
 
-	err = model.RenderClustersAsTable(w, rows, search_request, totalPageNum)
+	err = render.RenderClustersAsTable(w, rows, search_request, totalPageNum)
 
 	if err != nil {
 		logger.Error(err.Error()) // Already logging the error message
