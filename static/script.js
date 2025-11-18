@@ -104,6 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Menu on heatmap cell
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('searchBLAST');
+    if (!form) return;
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -121,6 +122,8 @@ document.addEventListener('DOMContentLoaded', function () {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
             },
             body: JSON.stringify(jsonData),
         })
@@ -128,24 +131,31 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
-                return response.text();
+                return response.json();
             })
             .then(data => {
-                // Write the response into the new window
-                newWindow.document.open();
-                newWindow.document.write(data);
-                newWindow.document.close();
-
-                // Optionally, update the new window's URL (this doesn't affect the browser's history)
-                newWindow.history.pushState({}, '', '/blast');
+                const jobId = data.job_id;
+                if (!jobId) {
+                    throw new Error('Missing job ID in response');
+                }
+                const targetUrl = `/blast/${encodeURIComponent(jobId)}`;
+                if (newWindow) {
+                    newWindow.location = targetUrl;
+                } else {
+                    window.open(targetUrl, '_blank');
+                }
             })
             .catch((error) => {
                 console.error('Error:', error);
 
-                // Display an error message in the new window
-                newWindow.document.open();
-                newWindow.document.write('<h1>Error</h1><p>Unable to fetch data. Please try again later.</p>');
-                newWindow.document.close();
+                const errorMessage = '<h1>Error</h1><p>Unable to start BLAST search. Please try again later.</p>';
+                if (newWindow) {
+                    newWindow.document.open();
+                    newWindow.document.write(errorMessage);
+                    newWindow.document.close();
+                } else {
+                    alert('Unable to start BLAST search. Please try again later.');
+                }
             });
     });
 });
@@ -178,4 +188,3 @@ document.addEventListener("DOMContentLoaded", function () {
 //         geneCheckboxes.forEach(cb => {cb.checked = anyUnchecked;});
 //     });
 // });
-

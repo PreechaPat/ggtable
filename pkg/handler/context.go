@@ -13,4 +13,5 @@ type DBContext struct {
 	Sequence_DB  *ggdb.SequenceDB
 	ProtBLAST_DB string
 	NuclBLAST_DB string
+	BlastJobs    *BlastJobManager
 }

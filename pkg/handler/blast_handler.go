@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -10,17 +11,22 @@ import (
 	"github.com/yumyai/ggtable/logger"
 	"github.com/yumyai/ggtable/pkg/model"
 	"github.com/yumyai/ggtable/pkg/render"
+	"go.uber.org/zap"
 
 	"github.com/yumyai/ggtable/pkg/handler/request"
 )
 
 func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) {
+	if dbctx.BlastJobs == nil {
+		http.Error(w, "BLAST service unavailable", http.StatusInternalServerError)
+		return
+	}
 
 	var req request.BlastSearchRequest
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		logger.Error(err.Error())
+		logger.Error("invalid BLAST request", zap.Error(err))
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -35,43 +41,90 @@ func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// TODO:Check if the sequence is compatible with blast type....
+	job := dbctx.BlastJobs.NewJob(req.BlastType)
+	go dbctx.runBlastJob(job.ID, req)
 
-	// Process the BLAST search
-	result := processBlastSearch(dbctx, req)
-
-	if message, ok := result["message"].(string); ok {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		render.RenderBLASTPage(w, message, req.BlastType)
+	if prefersJSON(r) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		if err := json.NewEncoder(w).Encode(map[string]string{
+			"job_id": job.ID,
+		}); err != nil {
+			logger.Error("failed to encode BLAST response", zap.String("job_id", job.ID), zap.Error(err))
+		}
+		return
 	}
+
+	http.Redirect(w, r, "/blast/"+job.ID, http.StatusSeeOther)
 }
 
-func processBlastSearch(dbctx *DBContext, req request.BlastSearchRequest) map[string]interface{} {
+func (dbctx *DBContext) runBlastJob(jobID string, req request.BlastSearchRequest) {
+	dbctx.BlastJobs.SetRunning(jobID)
 
-	var result map[string]interface{}
+	var (
+		output string
+		err    error
+	)
 
 	switch req.BlastType {
 	case "blastn":
-		output, _ := model.BLASTN(dbctx.NuclBLAST_DB, req.Sequence)
-		result = map[string]interface{}{
-			"message": output,
-			"status":  "OK",
-		}
+		output, err = model.BLASTN(dbctx.NuclBLAST_DB, req.Sequence)
 	case "blastp":
-		output, _ := model.BLASTP(dbctx.ProtBLAST_DB, req.Sequence)
-		result = map[string]interface{}{
-			"message": output,
-			"status":  "OK",
-		}
+		output, err = model.BLASTP(dbctx.ProtBLAST_DB, req.Sequence)
 	default:
-		result = map[string]interface{}{
-			"message": "sumthing wrong",
-			"status":  "error",
-		}
+		err = errors.New("unsupported BLAST type")
 	}
 
-	return result
+	if err != nil {
+		logger.Error("BLAST job failed", zap.String("job_id", jobID), zap.Error(err))
+		dbctx.BlastJobs.FailJob(jobID, err)
+		return
+	}
 
+	dbctx.BlastJobs.CompleteJob(jobID, output)
+}
+
+func (dbctx *DBContext) BlastStatusPage(w http.ResponseWriter, r *http.Request) {
+	if dbctx.BlastJobs == nil {
+		http.Error(w, "BLAST service unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	jobID := r.PathValue("job_id")
+	if strings.TrimSpace(jobID) == "" {
+		http.Error(w, "Missing job ID", http.StatusBadRequest)
+		return
+	}
+
+	job, ok := dbctx.BlastJobs.GetJob(jobID)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	data := render.BlastPageData{
+		JobID:                  job.ID,
+		BlastType:              job.BlastType,
+		BlastReport:            job.Result,
+		Status:                 string(job.Status),
+		ErrorMessage:           job.Error,
+		ShouldRefresh:          job.Status == BlastJobQueued || job.Status == BlastJobRunning,
+		RefreshIntervalSeconds: 5,
+	}
+
+	if err := render.RenderBLASTPage(w, data); err != nil {
+		logger.Error("failed to render BLAST page", zap.String("job_id", jobID), zap.Error(err))
+	}
+}
+
+func prefersJSON(r *http.Request) bool {
+	accept := r.Header.Get("Accept")
+	if strings.Contains(accept, "application/json") {
+		return true
+	}
+	return strings.EqualFold(r.Header.Get("X-Requested-With"), "XMLHttpRequest")
 }
 
 func (dbctx *DBContext) BlastNRedirectPage(w http.ResponseWriter, r *http.Request) {

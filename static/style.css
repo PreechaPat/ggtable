@@ -3,43 +3,28 @@
 
 .app-header {
     text-align: center;
-    /* Center everything inside the header */
-    margin: 20px auto;
+    margin: 8px auto 6px;
 }
 
 .app-name {
     font-family: 'Inter', Arial, sans-serif;
-    /* Modern font */
-    font-size: 3rem;
-    /* Large font for the application name */
+    font-size: 2rem;
     font-weight: 700;
-    /* Bold for prominence */
     color: #333333;
-    /* Neutral dark gray for readability */
     margin: 0;
-    /* Remove default margin */
     text-transform: uppercase;
-    /* Optional: make the name uppercase for impact */
-    letter-spacing: 0.1rem;
-    /* Slight spacing for elegance */
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
-    /* Subtle shadow for depth */
+    letter-spacing: 0.06rem;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .app-description {
     font-family: 'Inter', Arial, sans-serif;
-    font-size: 1.2rem;
-    /* Smaller font for the description */
+    font-size: 0.95rem;
     font-weight: 400;
-    /* Normal weight for readability */
     color: #666666;
-    /* Softer gray for less emphasis */
-    line-height: 1.8;
-    /* Good line spacing for multi-line text */
+    line-height: 1.4;
     max-width: 70%;
-    /* Restrict width for better readability */
-    margin: 10px auto 0;
-    /* Center align and add space above */
+    margin: 4px auto 0;
 }
 
 
@@ -88,9 +73,46 @@ table.genetable tbody {
 }
 
 /* Header */
-.rotate-text {
-    writing-mode: vertical-lr;
-    transform: scale(-1, -1);
-    vertical-align: bottom;
-    text-align: left;
+/* Vertical genome headers: bottom-to-top reading order
+   Works across modern browsers and older Safari. */
+.rotate-text { 
+    vertical-align: bottom; 
+    text-align: left; 
+    white-space: nowrap; 
+}
+
+/* The inner label handles the rotation/writing-mode so we can
+   fall back to a transform when a browser lacks full support. */
+.rotate-text .rotate-label {
+    display: inline-block;
+    /* Modern engines */
+    -webkit-writing-mode: vertical-rl;
+            writing-mode: vertical-rl;
+    -webkit-text-orientation: mixed;
+            text-orientation: mixed;
+    /* Bottom -> top */
+    transform: rotate(180deg);
+}
+
+/* Fallback for engines without vertical writing-mode support (older Safari) */
+@supports not (writing-mode: vertical-rl) {
+  .rotate-text .rotate-label {
+    /* Render horizontally and rotate the label itself */
+    transform: rotate(-90deg);
+    transform-origin: bottom left;
+  }
+}
+
+/* Limit header row height and constrain vertical labels */
+.genetable thead tr {
+    height: 120px;
+}
+
+.genetable th.rotate-text {
+    /* Allow content to determine height; row sets desired height */
+    height: auto;
+    width: 28px;
+    padding: 4px 2px;
+    /* Let tall labels extend instead of being cut off in Chrome */
+    overflow: visible;
 }

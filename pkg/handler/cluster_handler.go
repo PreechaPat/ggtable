@@ -17,10 +17,10 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 	genome := r.URL.Query().Get("genome_id")
 	gene := r.URL.Query().Get("gene_id")
 
-    genome_gene_param := request.GeneGetRequest{
-        Genome_ID: genome,
-        Gene_ID:   gene,
-    }
+	genome_gene_param := request.GeneGetRequest{
+		Genome_ID: genome,
+		Gene_ID:   gene,
+	}
 
 	logger.Debug("Searching for", zap.String("genome", genome), zap.String("gene", gene))
 
@@ -45,27 +45,28 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 	}
 
 	// Search request is used for rendering only, no query involve here.
-    // Allow optional color mode from query with canonicalization
-    colorByRaw := r.URL.Query().Get("color_by")
-    switch colorByRaw {
-    case "gene_copy_number", "copy_number", "copies", "copy", "":
-        colorByRaw = "gene_copy_number"
-    case "max_gene_completeness", "max_completeness", "completeness":
-        colorByRaw = "max_gene_completeness"
-    default:
-        colorByRaw = "gene_copy_number"
-    }
-    colorBy := colorByRaw
+	// Allow optional color mode from query with canonicalization
+	colorByRaw := r.URL.Query().Get("color_by")
+	switch colorByRaw {
+	case "gene_copy_number", "copy_number", "copies", "copy", "":
+		colorByRaw = "gene_copy_number"
+	case "max_gene_completeness", "max_completeness", "completeness":
+		colorByRaw = "max_gene_completeness"
+	default:
+		colorByRaw = "gene_copy_number"
+	}
+	colorBy := colorByRaw
 
-    var search_request = request.ClusterSearchRequest{
-        Search_For:   "",
-        Search_Field: request.NewClusterField(""),
-        Page:         1,
-        Page_Size:    1,
-        Genome_IDs:   model.ALL_GENOME_ID,
-        Color_By:     colorBy,
-        // RequireGenesFromGenomes: reqGeneFromGenome,
-    }
+	var search_request = request.ClusterSearchRequest{
+		Search_For:   "",
+		Search_Field: request.NewClusterField(""),
+		Order_Dir:    defaultOrderDir,
+		Page:         1,
+		Page_Size:    1,
+		Genome_IDs:   model.ALL_GENOME_ID,
+		Color_By:     colorBy,
+		// RequireGenesFromGenomes: reqGeneFromGenome,
+	}
 
 	err3 := render.RenderClustersAsTable(w, []*model.Cluster{cluster_prob}, search_request, 1)
 

@@ -2,35 +2,39 @@
   Header of forms
 */
 .gtable-header {
-    height: 20%;
-    /* Optional: set header height */
+    height: auto;
+    /* Let content define height */
+    padding: 8px 0;
     background-color: #f1f1f1;
-    /* Optional background for visualization */
 }
 
 .combined-forms {
     display: flex;
     justify-content: space-between;
-    gap: 16px; /* Space between columns */
-    margin: 16px 0; /* Optional margin for spacing */
+    gap: 12px;
+    margin: 8px 0;
 }
 
 .form-row {
     display: flex;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
 }
 
 .form-column {
     flex: 1;
-    /* Equal width for all columns */
-    padding: 8px;
-    border: 1px solid #ccc;
+    padding: 6px;
+    border: 1px solid #e5e7eb;
     border-radius: 4px;
-    background-color: #f9f9f9;
-    /* Optional background for visibility */
+    background-color: #fafafa;
+}
+
+.combined-forms h3 {
+    font-size: 1rem;
+    margin: 0 0 6px;
+    font-weight: 600;
 }
 
 /* Legend styles */

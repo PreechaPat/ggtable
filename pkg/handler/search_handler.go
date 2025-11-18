@@ -18,6 +18,13 @@ import (
 // Organize the DB connection
 // https://www.alexedwards.net/blog/organising-database-access
 
+const (
+	defaultPageSize   = 100
+	defaultPageNumber = 1
+	defaultOrderBy    = "cluster_id"
+	defaultOrderDir   = "asc"
+)
+
 // Response struct to hold the payload and page number
 type ClustersPayload struct {
 	Cluster   interface{} `json:"clusters"`
@@ -28,6 +35,23 @@ type ClusterResponse struct {
 	Success bool
 	Payload ClustersPayload `json:"payload"`
 	Error   bool
+}
+
+func parsePositiveIntFallback(v string, fallback int) int {
+	num, err := strconv.Atoi(v)
+	if err != nil || num <= 0 {
+		return fallback
+	}
+	return num
+}
+
+func normalizeOrderDir(raw string) string {
+	switch strings.ToLower(raw) {
+	case "desc":
+		return "desc"
+	default:
+		return defaultOrderDir
+	}
 }
 
 // Search page
@@ -42,36 +66,30 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	searchBy := r.URL.Query().Get("search_by")
 	searchByF := request.NewClusterField(searchBy)
 
-    orderBy := r.URL.Query().Get("order_by")
-    if orderBy == "" {
-        orderBy = "cluster_id"
-    }
-
+	orderBy := r.URL.Query().Get("order_by")
+	if orderBy == "" {
+		orderBy = defaultOrderBy
+	}
 	orderByF := request.NewClusterField(orderBy)
-	pageNumStr := r.URL.Query().Get("page")
-	pageSizeStr := r.URL.Query().Get("page_size")
-	currentPage, _ := strconv.Atoi(pageNumStr)
-	pageSize, _ := strconv.Atoi(pageSizeStr)
 
-    if pageSizeStr == "" || pageSize <= 0 {
-        logger.Error("Invalid page size, defaulting to 100")
-        pageSize = 100 // Default page size
-    }
+	currentPage := parsePositiveIntFallback(r.URL.Query().Get("page"), defaultPageNumber)
+	pageSize := parsePositiveIntFallback(r.URL.Query().Get("page_size"), defaultPageSize)
+	orderDir := normalizeOrderDir(r.URL.Query().Get("order_dir"))
 
-    // Color selection canonicalization
-    // Accepted: gene_copy_number | max_gene_completeness
-    // Backward-compat: copy -> gene_copy_number, completeness -> max_gene_completeness
-    colorByRaw := r.URL.Query().Get("color_by")
-    switch colorByRaw {
-    case "gene_copy_number", "copy_number", "copies", "copy", "":
-        // default to gene_copy_number if empty
-        colorByRaw = "gene_copy_number"
-    case "max_gene_completeness", "max_completeness", "completeness":
-        colorByRaw = "max_gene_completeness"
-    default:
-        colorByRaw = "gene_copy_number"
-    }
-    colorBy := colorByRaw
+	// Color selection canonicalization
+	// Accepted: gene_copy_number | max_gene_completeness
+	// Backward-compat: copy -> gene_copy_number, completeness -> max_gene_completeness
+	colorByRaw := r.URL.Query().Get("color_by")
+	switch colorByRaw {
+	case "gene_copy_number", "copy_number", "copies", "copy", "":
+		// default to gene_copy_number if empty
+		colorByRaw = "gene_copy_number"
+	case "max_gene_completeness", "max_completeness", "completeness":
+		colorByRaw = "max_gene_completeness"
+	default:
+		colorByRaw = "gene_copy_number"
+	}
+	colorBy := colorByRaw
 
 	// Include the following genome only
 	var includeGenome []string
@@ -94,25 +112,27 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 	// 	}
 	// }
 
-    logger.Info("Running searchpage",
-        zap.String("searchterm", searchTerm),
-        zap.String("url", r.URL.Path),
-        zap.Int("Page", currentPage),
-        zap.Int("Pagesize", pageSize),
-        zap.String("order_by", orderByF.String()),
-        zap.String("color_by", colorBy),
-    )
+	logger.Info("Running searchpage",
+		zap.String("searchterm", searchTerm),
+		zap.String("url", r.URL.Path),
+		zap.Int("Page", currentPage),
+		zap.Int("Pagesize", pageSize),
+		zap.String("order_by", orderByF.String()),
+		zap.String("order_dir", orderDir),
+		zap.String("color_by", colorBy),
+	)
 
-    var search_request = request.ClusterSearchRequest{
-        Search_For:   searchTerm,
-        Search_Field: searchByF,
-        Order_By:     orderByF,
-        Page:         currentPage,
-        Page_Size:    pageSize,
-        Genome_IDs:   includeGenome,
-        Color_By:     colorBy,
-        // RequireGenesFromGenomes: reqGeneFromGenome,
-    }
+	var search_request = request.ClusterSearchRequest{
+		Search_For:   searchTerm,
+		Search_Field: searchByF,
+		Order_By:     orderByF,
+		Order_Dir:    orderDir,
+		Page:         currentPage,
+		Page_Size:    pageSize,
+		Genome_IDs:   includeGenome,
+		Color_By:     colorBy,
+		// RequireGenesFromGenomes: reqGeneFromGenome,
+	}
 
 	rows, _ := model.SearchGeneCluster(dbctx.DB, search_request)
 	rowNum, _ := model.CountSearchRow(dbctx.DB, search_request)
@@ -130,51 +150,48 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 // Main page.
 func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 
-	PAGE_SIZE := 100
+	const PAGE_SIZE = defaultPageSize
 
-	pageNumStr := r.URL.Query().Get("page")
-	pageNum, _ := strconv.Atoi(pageNumStr)
+	pageNum := parsePositiveIntFallback(r.URL.Query().Get("page"), defaultPageNumber)
 
-    orderBy := r.URL.Query().Get("order_by")
-    if orderBy == "" {
-        orderBy = "cluster_id"
-    }
-
-	orderByF := request.NewClusterField(orderBy)
-
-	if pageNum == 0 {
-		pageNum = 1
+	orderBy := r.URL.Query().Get("order_by")
+	if orderBy == "" {
+		orderBy = defaultOrderBy
 	}
+	orderByF := request.NewClusterField(orderBy)
+	orderDir := normalizeOrderDir(r.URL.Query().Get("order_dir"))
 
-    // Color selection canonicalization
-    colorByRaw := r.URL.Query().Get("color_by")
-    switch colorByRaw {
-    case "gene_copy_number", "copy_number", "copies", "copy", "":
-        colorByRaw = "gene_copy_number"
-    case "max_gene_completeness", "max_completeness", "completeness":
-        colorByRaw = "max_gene_completeness"
-    default:
-        colorByRaw = "gene_copy_number"
-    }
-    colorBy := colorByRaw
+	// Color selection canonicalization
+	colorByRaw := r.URL.Query().Get("color_by")
+	switch colorByRaw {
+	case "gene_copy_number", "copy_number", "copies", "copy", "":
+		colorByRaw = "gene_copy_number"
+	case "max_gene_completeness", "max_completeness", "completeness":
+		colorByRaw = "max_gene_completeness"
+	default:
+		colorByRaw = "gene_copy_number"
+	}
+	colorBy := colorByRaw
 
-    logger.Info("Running mainpage",
-        zap.String("url", r.URL.Path),
-        zap.Int("page", pageNum),
-        zap.Int("page_size", PAGE_SIZE),
-        zap.String("order_by", orderByF.String()),
-        zap.String("color_by", colorBy),
-    )
+	logger.Info("Running mainpage",
+		zap.String("url", r.URL.Path),
+		zap.Int("page", pageNum),
+		zap.Int("page_size", PAGE_SIZE),
+		zap.String("order_by", orderByF.String()),
+		zap.String("order_dir", orderDir),
+		zap.String("color_by", colorBy),
+	)
 
-    var search_request = request.ClusterSearchRequest{
-        Search_For:   "",
-        Search_Field: request.ClusterFieldFunction,
-        Order_By:     orderByF,
-        Page:         pageNum,
-        Page_Size:    PAGE_SIZE,
-        Genome_IDs:   model.ALL_GENOME_ID, // Default to all genomes
-        Color_By:     colorBy,
-    }
+	var search_request = request.ClusterSearchRequest{
+		Search_For:   "",
+		Search_Field: request.ClusterFieldFunction,
+		Order_By:     orderByF,
+		Order_Dir:    orderDir,
+		Page:         pageNum,
+		Page_Size:    PAGE_SIZE,
+		Genome_IDs:   model.ALL_GENOME_ID, // Default to all genomes
+		Color_By:     colorBy,
+	}
 
 	rows, err := model.GetMainPage(dbctx.DB, search_request) // Capture the error here
 	if err != nil {

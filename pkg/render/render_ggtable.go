@@ -246,7 +246,7 @@ func init() {
     <!-- Remember page number, order by and order direction -->
     <input type="hidden" name="page" id="page" value="{{.CurrentPage}}"></input>
     <input type="hidden" name="order_by" id="order_by" value={{.OrderBy}}></input>
-    <input type="hidden" name="order_dir" id="order_dir" value="asc"></input>
+    <input type="hidden" name="order_dir" id="order_dir" value="{{.OrderDir}}"></input>
 
     {{template "filterByGenome" .}}
     {{template "filterByGene" .}}
@@ -290,14 +290,15 @@ func init() {
         <span class="legend-item"><span class="legend-swatch" style="background:#BD0026"></span><span>5 copies</span></span>
       </div>
       <div class="legend-row">
-        <span class="legend-item"><span class="legend-swatch legend-swatch--wide" style="background: linear-gradient(90deg,#BD0026,#800000);"></span><span>6+ copies (darker = more)</span></span>
+        <span class="legend-item"><span class="legend-swatch legend-swatch--wide" style="background: -webkit-linear-gradient(left,#BD0026,#800000); background: linear-gradient(90deg,#BD0026,#800000);"></span><span>6+ copies (darker = more)</span></span>
       </div>
     </div>
   {{else}}
     <div class="legend">
       <div class="legend-row">
         <span class="legend-item"><span class="legend-swatch" style="background:#8B8989"></span><span>&lt; 70%</span></span>
-        <span class="legend-item"><span class="legend-swatch legend-swatch--wide" style="background: linear-gradient(90deg,#FF0000,#FFFF00,#00FF00);"></span><span>70%–100%</span></span>
+        <!-- Add WebKit-prefixed fallback for older Chrome -->
+        <span class="legend-item"><span class="legend-swatch legend-swatch--wide" style="background: -webkit-linear-gradient(left,#FF0000,#FFFF00,#00FF00); background: linear-gradient(90deg,#FF0000,#FFFF00,#00FF00);"></span><span>70%–100%</span></span>
       </div>
     </div>
   {{end}}
@@ -343,7 +344,7 @@ func init() {
             <th><a href="javascript:void(0)" onclick="updateForm({order_by: 'cog_id'})">CogID</a></th>
             <th>Expected Length</th>
             <th class="col-func"><a href="javascript:void(0)" onclick="updateForm({order_by: 'function'})">Function Description</a></th>
-                {{range .SelectedGenomeIDs}}<th class="rotate-text">{{index $.GenomeNames .}}</th>{{end}}
+                {{range .SelectedGenomeIDs}}<th class="rotate-text" title="{{index $.GenomeNames .}}"><span class="rotate-label">{{index $.GenomeNames .}}</span></th>{{end}}
             </tr>
             {{range .Rows}}
                 <tr>
@@ -452,6 +453,10 @@ func RenderClustersAsTable(w io.Writer, rows []*model.Cluster, search_request re
 	currentPage := search_request.Page
 	pageSize := search_request.Page_Size
 	orderBy := search_request.Order_By.String()
+	orderDir := search_request.Order_Dir
+	if orderDir != "desc" {
+		orderDir = "asc"
+	}
 	headerSet := make(map[string]struct{})
 	for _, id := range header {
 		headerSet[id] = struct{}{}
@@ -472,6 +477,7 @@ func RenderClustersAsTable(w io.Writer, rows []*model.Cluster, search_request re
 		AllGenomeIDs      []string
 		GenomeNames       map[string]string
 		OrderBy           string
+		OrderDir          string
 		SelectedGenome    map[string]struct{}
 		SearchText        string
 		SearchField       string
@@ -486,6 +492,7 @@ func RenderClustersAsTable(w io.Writer, rows []*model.Cluster, search_request re
 		AllGenomeIDs:      genomeIDAll,
 		GenomeNames:       genomeMapAll,
 		OrderBy:           orderBy,
+		OrderDir:          orderDir,
 		SelectedGenome:    headerSet,
 		SearchText:        search_request.Search_For,
 		SearchField:       search_request.Search_Field.String(),

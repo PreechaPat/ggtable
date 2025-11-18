@@ -118,6 +118,7 @@ func run(cfg AppConfig) error {
 		Sequence_DB:  &ggdb.SequenceDB{Dir: seqDB},
 		ProtBLAST_DB: protDB,
 		NuclBLAST_DB: nuclDB,
+		BlastJobs:    handler.NewBlastJobManager(),
 	}
 
 	logger.Info("Start", zap.String("Version", cfg.Version))
@@ -163,6 +164,7 @@ func NewRouter(dbctx *handler.DBContext) *http.ServeMux {
 	mux.HandleFunc("GET /", dbctx.MainPage)
 	mux.HandleFunc("GET /search", dbctx.ClusterSearchPage)
 	mux.HandleFunc("POST /blast", dbctx.BlastSearchPage)
+	mux.HandleFunc("GET /blast/{job_id}", dbctx.BlastStatusPage)
 	mux.HandleFunc("GET /cluster/{cluster_id}", dbctx.ClusterPage) // Go to cluster-page, difference from below TODO: change name to avoide future confusion
 	mux.HandleFunc("GET /cluster/", dbctx.GetClusterByGeneHandler) // Use by in BLAST result.
 	mux.HandleFunc("GET /redirect/blastn/", dbctx.BlastNRedirectPage)
