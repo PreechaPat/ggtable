@@ -11,18 +11,29 @@ import (
 	"go.uber.org/zap"
 )
 
-// Get cluster by genome + gene ID
-func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.Request) {
+// ClusterHeatmapPage renders the search-style heatmap for a single cluster resolved via genome/contig/gene path params.
+func (dbctx *DBContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.Request) {
 
-	genome := r.URL.Query().Get("genome_id")
-	gene := r.URL.Query().Get("gene_id")
+	genome := r.PathValue("genome_id")
+	contig := r.PathValue("contig_id")
+	gene := r.PathValue("gene_id")
+
+	if genome == "" || gene == "" {
+		fmt.Fprint(w, "ERROR")
+		return
+	}
 
 	genome_gene_param := request.GeneGetRequest{
 		Genome_ID: genome,
+		Contig_ID: contig,
 		Gene_ID:   gene,
 	}
 
-	logger.Debug("Searching for", zap.String("genome", genome), zap.String("gene", gene))
+	logger.Debug("Searching for",
+		zap.String("genome", genome),
+		zap.String("contig", contig),
+		zap.String("gene", gene),
+	)
 
 	cluster_ids, err := model.GetClusterID(dbctx.DB, genome_gene_param)
 
@@ -76,7 +87,8 @@ func (dbctx *DBContext) GetClusterByGeneHandler(w http.ResponseWriter, r *http.R
 	}
 }
 
-func (dbctx *DBContext) ClusterPage(w http.ResponseWriter, r *http.Request) {
+// ClusterDetailPage renders the dedicated table view for a cluster addressed by ID.
+func (dbctx *DBContext) ClusterDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	cluster_id := r.PathValue("cluster_id")
 

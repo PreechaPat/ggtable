@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -130,7 +131,11 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 			}
 
 			replacement := fmt.Sprintf("%s-%s|%s|%s", genome_name, genome_id, contig, gene)
-			link := fmt.Sprintf("/cluster/?genome_id=%s&contig_id=%s&gene_id=%s", genome_id, contig, gene)
+			link := fmt.Sprintf("/cluster/heatmap/%s/%s/%s",
+				url.PathEscape(genome_id),
+				url.PathEscape(contig),
+				url.PathEscape(gene),
+			)
 			link_html := fmt.Sprintf("<a href=\"%s\">View in gene table</a>", link)
 
 			transformedLine := sequence_name_regex.ReplaceAllString(line, replacement)
@@ -217,7 +222,7 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 // 			}
 
 // 			replacement := fmt.Sprintf("%s-%s|%s|%s", genomeName, genomeID, contig, gene)
-// 			link := fmt.Sprintf("/cluster/?genome_id=%s&contig_id=%s&gene_id=%s", genomeID, contig, gene)
+// 			link := fmt.Sprintf("/cluster/heatmap/%s/%s/%s", url.PathEscape(genomeID), url.PathEscape(contig), url.PathEscape(gene))
 // 			linkHTML := fmt.Sprintf("<a href=\"%s\">View in gene table</a>", link)
 
 // 			transformedLine := headerRegex.ReplaceAllString(line, replacement)

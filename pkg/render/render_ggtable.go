@@ -352,7 +352,7 @@ func init() {
                         {{.ClusterProperty.ClusterID}}
                         <div class="menu">
                             <a href="#" class="close-menu">[close]</a>
-                            [<a href="/cluster/{{.ClusterProperty.ClusterID}}" target="_blank">Overview</a>]
+                            [<a href="/cluster/table/{{.ClusterProperty.ClusterID}}" target="_blank">Overview</a>]
                             [<a href="/sequence/by-cluster?cluster_id={{ .ClusterProperty.ClusterID }}&is_prot=false" target="_blank">FNA</a>]
                             [<a href="/sequence/by-cluster?cluster_id={{ .ClusterProperty.ClusterID }}&is_prot=true" target="_blank">FAA</a>]
                         </div>

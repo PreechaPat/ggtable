@@ -59,6 +59,7 @@ func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) 
 }
 
 func (dbctx *DBContext) runBlastJob(jobID string, req request.BlastSearchRequest) {
+
 	dbctx.BlastJobs.SetRunning(jobID)
 
 	var (
