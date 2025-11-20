@@ -3,6 +3,7 @@
 package render
 
 import (
+	"fmt"
 	"io"
 	"math"
 	"text/template"
@@ -27,7 +28,7 @@ func init() {
 	<body>
 		<h1>Cluster Analysis: {{ .Cluster.ClusterProperty.ClusterID }} </h1>
 		{{template "cluster_summary" . }}
-		{{template "cluster_info" .Cluster}}
+		{{template "cluster_info" . }}
 		<h2>Resources</h2>
 		    <ul>
 				<li>[<a href="/sequence/by-cluster?cluster_id={{ .Cluster.ClusterProperty.ClusterID }}&is_prot=false" target="_blank">FNA</a>]All nucleotide sequences in FASTA format</li>
@@ -44,10 +45,10 @@ func init() {
 			Summary of {{ .Cluster.ClusterProperty.ClusterID }}
 		</div>
 		<div>
-		    <p>This cluster consists of {{ len $.Cluster.Genomes }} genomes.</p>
+			<p>This cluster consists of {{ len $.Cluster.Genomes }} genomes.</p>
 			<p>Function: {{ $.Cluster.ClusterProperty.FunctionDescription }}</p>
 			<p>Consists of {{ $.TotalGenes }} gene members and {{ $.TotalRegions }} homologous genomic regions from {{ len $.Cluster.Genomes }} / 101 genomes.</p>
-			<p>Representative gene: {{ $.RepresentativeGene.GeneID }} ({{ calculateGeneLength $.RepresentativeGene.Region.End $.RepresentativeGene.Region.Start }} bp) [ {{$.RepresentativeGene.Region.GenomeID }}]</p>
+			<p>Representative gene: {{ $.RepresentativeGene.GeneID }} ({{ calculateGeneLength $.RepresentativeGene.Region.End $.RepresentativeGene.Region.Start }} bp) [ {{genomeLabel $.RepresentativeGene.Region.GenomeID $.GenomeNames}}]</p>
 		</div>
 	  {{end}}
 	`
@@ -56,7 +57,7 @@ func init() {
 	{{define "cluster_info"}}
 		<table border="1">
 		<tr>
-			<th>Genome ID</th>
+			<th>Genome</th>
 			<th>Gene ID</th>
 			<th>Start</th>
 			<th>Stop</th>
@@ -65,10 +66,10 @@ func init() {
 			<th>Function Description</th>
 			<th>Links</th>
 		</tr>
-		{{ range $genome_name, $genome := .Genomes }}
+		{{ range $genome_name, $genome := .Cluster.Genomes }}
 			{{ range $gene := $genome.Genes }}
 				<tr style="background-color: #d9f2e6; color: #333333">
-					<td>{{ $genome_name }}</td>
+					<td>{{ genomeLabel $genome_name $.GenomeNames }}</td>
 					<td>{{ $gene.GeneID }}</td>
 					{{ with $gene.Region }}
 						<td>{{ .Start }}</td>
@@ -91,7 +92,7 @@ func init() {
 			{{ end }}
 			{{ range $region := $genome.Regions }}
 				<tr style="background-color: #f2d9d9; color: #333333">
-					<td>{{ $genome_name }}</td>
+					<td>{{ genomeLabel $genome_name $.GenomeNames }}</td>
 					<td> Region - {{ .GenomeID }}|{{ .ContigID }}:{{ .Start }}-{{ .End }} </td>
 					<td>{{ .Start }}</td>
 					<td>{{ .End }}</td>
@@ -120,6 +121,15 @@ func init() {
 			return ok
 		},
 		"calculateGeneLength": func(a, b int) int { return int(math.Abs(float64(a - b + 1))) },
+		"genomeLabel": func(genomeID string, names map[string]string) string {
+			if names == nil {
+				return genomeID
+			}
+			if name, ok := names[genomeID]; ok && name != "" {
+				return fmt.Sprintf("%s (%s)", name, genomeID)
+			}
+			return genomeID
+		},
 	}
 
 	cluster_page_template = cluster_page_template.Funcs(funcMap)
@@ -151,8 +161,8 @@ func getLongestGene(cluster *model.Cluster) *model.Gene {
 	return longestGene
 }
 
-// Function to render an HTML page with a table
-func RenderClusterPage(w io.Writer, cluster *model.Cluster) error {
+// RenderClusterTablePage renders a detailed HTML table for a cluster.
+func RenderClusterTablePage(w io.Writer, cluster *model.Cluster) error {
 
 	logger.Info("Rendering cluster page on", zap.String("cluster-id", cluster.ClusterProperty.ClusterID))
 

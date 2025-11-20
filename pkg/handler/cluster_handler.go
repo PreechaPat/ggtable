@@ -79,7 +79,7 @@ func (dbctx *DBContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.Reques
 		// RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 
-	err3 := render.RenderClustersAsTable(w, []*model.Cluster{cluster_prob}, search_request, 1)
+	err3 := render.RenderClusterHeatmapPage(w, []*model.Cluster{cluster_prob}, search_request, 1)
 
 	if err3 != nil {
 		fmt.Fprint(w, "ERROR")
@@ -98,7 +98,7 @@ func (dbctx *DBContext) ClusterDetailPage(w http.ResponseWriter, r *http.Request
 		panic(err_query)
 	}
 
-	err := render.RenderClusterPage(w, res)
+	err := render.RenderClusterTablePage(w, res)
 
 	if err != nil {
 		panic(err)

@@ -443,9 +443,9 @@ func init() {
 	searchPageTemplate = template.Must(searchPageTemplate.Parse(paginationTmpl))
 }
 
-// Function to render an HTML page with a table
+// RenderClusterHeatmapPage renders the heatmap table view for one or more clusters.
 // Header for arrange the genome id
-func RenderClustersAsTable(w io.Writer, rows []*model.Cluster, search_request request.ClusterSearchRequest, totalPage int) error {
+func RenderClusterHeatmapPage(w io.Writer, rows []*model.Cluster, search_request request.ClusterSearchRequest, totalPage int) error {
 
 	genomeIDAll := model.ALL_GENOME_ID
 	genomeMapAll := model.MAP_HEADER

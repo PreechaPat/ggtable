@@ -139,7 +139,7 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 
 	totalPageNum := (rowNum + pageSize - 1) / pageSize // Rounding up
 
-	err := render.RenderClustersAsTable(w, rows, search_request, totalPageNum)
+	err := render.RenderClusterHeatmapPage(w, rows, search_request, totalPageNum)
 
 	if err != nil {
 		logger.Error(err.Error())
@@ -217,7 +217,7 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 
 	totalPageNum := (rowNum + PAGE_SIZE - 1) / PAGE_SIZE // To round it up instead
 
-	err = render.RenderClustersAsTable(w, rows, search_request, totalPageNum)
+	err = render.RenderClusterHeatmapPage(w, rows, search_request, totalPageNum)
 
 	if err != nil {
 		logger.Error(err.Error()) // Already logging the error message
