@@ -141,22 +141,19 @@ func geneNameScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest
 		return err
 	}
 
-	// like := "%" + req.Search_For + "%"
-	equalTO := req.Search_For
+	geneID := req.Search_For
 
 	const matchedSQL = `
 		CREATE TEMPORARY TABLE matched_clusters AS
 		SELECT DISTINCT gm.cluster_id
-		FROM gene_info gi
-		JOIN gene_matches gm
-			ON gi.gene_id = gm.gene_id AND gi.genome_id = gm.genome_id
-		WHERE gi.gene_id = ?
-		  AND (
-			gm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
-			OR (SELECT COUNT(*) FROM temp_genome_ids)=0
-		  );
+		FROM gene_matches gm
+		WHERE gm.gene_id = ?
+		AND (
+			NOT EXISTS (SELECT 1 FROM temp_genome_ids)
+			OR gm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
+		);
 	`
-	if _, err := tx.Exec(matchedSQL, equalTO); err != nil {
+	if _, err := tx.Exec(matchedSQL, geneID); err != nil {
 		return fmt.Errorf("create matched_clusters: %w", err)
 	}
 
@@ -618,21 +615,16 @@ func CountSearchRow(db *sql.DB, req request.ClusterSearchRequest) (int, error) {
 				return err
 			}
 
-			like := "%" + req.Search_For + "%"
-
 			const q = `
-					SELECT COUNT(DISTINCT gm.cluster_id)
-					FROM gene_info gi
-					JOIN gene_matches gm
-					ON gi.gene_id = gm.gene_id
-					AND gi.genome_id = gm.genome_id
-					WHERE gi.gene_id LIKE ?
-					AND (
-							NOT EXISTS (SELECT 1 FROM temp_genome_ids)
-							OR gm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
-						);
-					`
-			if err := tx.QueryRow(q, like).Scan(&count); err != nil {
+				SELECT COUNT(DISTINCT gm.cluster_id)
+				FROM gene_matches gm
+				WHERE gm.gene_id = ?
+				AND (
+					NOT EXISTS (SELECT 1 FROM temp_genome_ids)
+					OR gm.genome_id IN (SELECT genome_id FROM temp_genome_ids)
+				);
+			`
+			if err := tx.QueryRow(q, req.Search_For).Scan(&count); err != nil {
 				return fmt.Errorf("count gene-name unique clusters: %w", err)
 			}
 
