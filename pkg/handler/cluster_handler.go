@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/yumyai/ggtable/logger"
 	"github.com/yumyai/ggtable/pkg/handler/request"
@@ -68,18 +69,29 @@ func (dbctx *DBContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.Reques
 	}
 	colorBy := colorByRaw
 
+	// Allow only selected genome IDs (defaults to all)
+	includeGenome := []string{}
+	for key := range r.URL.Query() {
+		if strings.HasPrefix(key, "gm_") {
+			includeGenome = append(includeGenome, strings.TrimPrefix(key, "gm_"))
+		}
+	}
+	if len(includeGenome) == 0 {
+		includeGenome = model.ALL_GENOME_ID
+	}
+
 	var search_request = request.ClusterSearchRequest{
 		Search_For:   "",
 		Search_Field: request.NewClusterField(""),
 		Order_Dir:    defaultOrderDir,
 		Page:         1,
 		Page_Size:    1,
-		Genome_IDs:   model.ALL_GENOME_ID,
+		Genome_IDs:   includeGenome,
 		Color_By:     colorBy,
 		// RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 
-	err3 := render.RenderClusterHeatmapPage(w, []*model.Cluster{cluster_prob}, search_request, 1)
+	err3 := render.RenderClusterStandaloneHeatmapPage(w, []*model.Cluster{cluster_prob}, search_request, 1)
 
 	if err3 != nil {
 		fmt.Fprint(w, "ERROR")

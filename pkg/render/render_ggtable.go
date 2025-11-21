@@ -159,7 +159,19 @@ func arrangeGenomeColorByCopyNumber(genomes map[string]*model.Genome, genomeIDs 
 	return arrangeGenomeWithColor(genomes, genomeIDs, colorByCopyNumber)
 }
 
-var searchPageTemplate *template.Template
+var (
+	templateFuncMap = template.FuncMap{
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+		"eqs": func(a, b string) bool { return a == b },
+		"eqi": func(a, b int) bool { return a == b },
+		"hasKey": func(m map[string]struct{}, k string) bool {
+			_, ok := m[k]
+			return ok
+		},
+	}
+	searchPageTemplate *template.Template
+)
 
 // init initializes the templates used for rendering the HTML page.
 func init() {
@@ -175,7 +187,7 @@ func init() {
 	</head>
 	<body>
 		<header class="app-header">
-			<h1 class="app-name">Pins Gene Table v3.0</h1>
+			<h1 class="app-name">Pins Gene Table v3</h1>
 			<p class="app-description">
 				the online informatics tool for analyzing and comparing gene content of P. insidiosum with related species.
 			</p>
@@ -207,7 +219,6 @@ func init() {
 		</div>
 	{{end}}
 	`
-	// <option value="gene_id"  {{if eq .SearchField "gene_id"}}selected{{end}}>Gene ID</option>
 
 	searchForm1 := `
 	{{ define "searchForm1"}}
@@ -416,21 +427,7 @@ func init() {
 		{{end}}
 	</div>{{end}}`
 
-	funcMap := template.FuncMap{
-		// "arrangeGenome":                 arrangeGenome,
-		// "arrangeGenomeColorByCopyNumber": arrangeGenomeColorByCopyNumber,
-		// "arrangeGenomeColorByCompleteness": arrangeGenomeColorByCompleteness,
-		"add": func(a, b int) int { return a + b },
-		"sub": func(a, b int) int { return a - b },
-		"eqs": func(a, b string) bool { return a == b },
-		"eqi": func(a, b int) bool { return a == b },
-		"hasKey": func(m map[string]struct{}, k string) bool {
-			_, ok := m[k]
-			return ok
-		},
-	}
-
-	searchPageTemplate = template.New("ggtable").Funcs(funcMap)
+	searchPageTemplate = template.New("ggtable").Funcs(templateFuncMap)
 	searchPageTemplate = template.Must(searchPageTemplate.Parse(mainTmpl))
 	searchPageTemplate = template.Must(searchPageTemplate.Parse(combinedForms))
 	searchPageTemplate = template.Must(searchPageTemplate.Parse(searchForm1))
@@ -443,17 +440,31 @@ func init() {
 	searchPageTemplate = template.Must(searchPageTemplate.Parse(paginationTmpl))
 }
 
-// RenderClusterHeatmapPage renders the heatmap table view for one or more clusters.
-// Header for arrange the genome id
-func RenderClusterHeatmapPage(w io.Writer, rows []*model.Cluster, search_request request.ClusterSearchRequest, totalPage int) error {
+type clusterHeatmapPageData struct {
+	Rows              []*model.Cluster
+	SelectedGenomeIDs []string
+	AllGenomeIDs      []string
+	GenomeNames       map[string]string
+	OrderBy           string
+	OrderDir          string
+	SelectedGenome    map[string]struct{}
+	SearchText        string
+	SearchField       string
+	CurrentPage       int
+	TotalPage         int
+	PageSize          int
+	ArrangeGenome     func(map[string]*model.Genome, []string) []Cell
+	ColorBy           string
+}
 
+func buildClusterHeatmapPageData(rows []*model.Cluster, searchRequest request.ClusterSearchRequest, totalPage int) clusterHeatmapPageData {
 	genomeIDAll := model.ALL_GENOME_ID
 	genomeMapAll := model.MAP_HEADER
-	header := search_request.Genome_IDs
-	currentPage := search_request.Page
-	pageSize := search_request.Page_Size
-	orderBy := search_request.Order_By.String()
-	orderDir := search_request.Order_Dir
+	header := searchRequest.Genome_IDs
+	currentPage := searchRequest.Page
+	pageSize := searchRequest.Page_Size
+	orderBy := searchRequest.Order_By.String()
+	orderDir := searchRequest.Order_Dir
 	if orderDir != "desc" {
 		orderDir = "asc"
 	}
@@ -462,7 +473,6 @@ func RenderClusterHeatmapPage(w io.Writer, rows []*model.Cluster, search_request
 		headerSet[id] = struct{}{}
 	}
 
-	// Reorder `headerSet` reorder according to `genomeIDAll`
 	reorderedGenomeIDs := []string{}
 	for _, id := range genomeIDAll {
 		if _, exists := headerSet[id]; exists {
@@ -470,23 +480,7 @@ func RenderClusterHeatmapPage(w io.Writer, rows []*model.Cluster, search_request
 		}
 	}
 
-	// For each Cluster row, build an array
-	data := struct {
-		Rows              []*model.Cluster
-		SelectedGenomeIDs []string
-		AllGenomeIDs      []string
-		GenomeNames       map[string]string
-		OrderBy           string
-		OrderDir          string
-		SelectedGenome    map[string]struct{}
-		SearchText        string
-		SearchField       string
-		CurrentPage       int
-		TotalPage         int
-		PageSize          int
-		ArrangeGenome     func(map[string]*model.Genome, []string) []Cell
-		ColorBy           string
-	}{
+	data := clusterHeatmapPageData{
 		Rows:              rows,
 		SelectedGenomeIDs: reorderedGenomeIDs,
 		AllGenomeIDs:      genomeIDAll,
@@ -494,17 +488,16 @@ func RenderClusterHeatmapPage(w io.Writer, rows []*model.Cluster, search_request
 		OrderBy:           orderBy,
 		OrderDir:          orderDir,
 		SelectedGenome:    headerSet,
-		SearchText:        search_request.Search_For,
-		SearchField:       search_request.Search_Field.String(),
+		SearchText:        searchRequest.Search_For,
+		SearchField:       searchRequest.Search_Field.String(),
 		CurrentPage:       currentPage,
 		TotalPage:         totalPage,
 		PageSize:          pageSize,
 		ArrangeGenome:     arrangeGenomeColorByCopyNumber,
-		ColorBy:           search_request.Color_By,
+		ColorBy:           searchRequest.Color_By,
 	}
 
-	// Pick arranger based on color selection
-	switch search_request.Color_By {
+	switch searchRequest.Color_By {
 	case "max_gene_completeness":
 		data.ArrangeGenome = arrangeGenomeColorByCompleteness
 	default:
@@ -512,5 +505,11 @@ func RenderClusterHeatmapPage(w io.Writer, rows []*model.Cluster, search_request
 		data.ArrangeGenome = arrangeGenomeColorByCopyNumber
 	}
 
+	return data
+}
+
+// RenderClusterHeatmapPage renders the search heatmap table view for one or more clusters.
+func RenderClusterHeatmapPage(w io.Writer, rows []*model.Cluster, searchRequest request.ClusterSearchRequest, totalPage int) error {
+	data := buildClusterHeatmapPageData(rows, searchRequest, totalPage)
 	return searchPageTemplate.Execute(w, data)
 }

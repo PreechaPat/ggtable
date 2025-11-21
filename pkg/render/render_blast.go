@@ -41,7 +41,7 @@ func init() {
 		{{ end }}
 	</head>
 	<body>
-		<h1>Gene Table V.3.0</h1>
+		<h1>Gene Table V3</h1>
 		<p><strong>Job ID:</strong> {{ .JobID }}</p>
 		<p><strong>BLAST type:</strong> {{ .BlastType}}</p>
 		<p><strong>Status:</strong> {{ .Status }}</p>

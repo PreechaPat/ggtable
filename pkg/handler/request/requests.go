@@ -35,21 +35,3 @@ type RegionGetRequest struct {
 	End       uint64 `json:"end"`
 	Is_Prot   bool   `json:"is_prot"`
 }
-
-// TODO: Move these to pkg/db/sequence.go
-// Methods for building samtools request strings
-// func (g GeneGetRequest) String() string {
-// 	return fmt.Sprintf(
-// 		"%s|%s|%s",
-// 		g.Genome_ID, g.Contig_ID, g.Gene_ID,
-// 	)
-// }
-
-// func (r RegionGetRequest) String() string {
-// 	return fmt.Sprintf(
-// 		"%s|%s:%d-%d",
-// 		r.Genome_ID, r.Contig_ID, r.Start, r.End,
-// 	)
-// }
-
-// Methods
