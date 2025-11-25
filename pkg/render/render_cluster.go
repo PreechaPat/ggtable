@@ -21,8 +21,8 @@ func init() {
 	<!DOCTYPE html>
 	<html>
 	<head>
-	    <link href="static/style.css" rel="stylesheet"></link>
-		<script src="static/script.js" defer></script>
+	    <link href="static/gene-table.css" rel="stylesheet"></link>
+		<script src="static/gene-table.js" defer></script>
 		<title>Cluster Analysis: {{ .Cluster.ClusterProperty.ClusterID }}</title>
 	</head>
 	<body>

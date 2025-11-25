@@ -179,10 +179,10 @@ func init() {
 	<!DOCTYPE html>
 	<html>
 	<head>
-	    <link href="/static/style.css" rel="stylesheet"></link>
-	    <link href="/static/cform.css" rel="stylesheet"></link>
-		<script src="/static/script.js" defer></script>
-		<script src="/static/cform.js" defer></script>
+	    <link href="/static/gene-table.css" rel="stylesheet"></link>
+	    <link href="/static/collapsible-panels.css" rel="stylesheet"></link>
+		<script src="/static/gene-table.js" defer></script>
+		<script src="/static/collapsible-panels.js" defer></script>
 		<title>Genome Cluster Analysis</title>
 	</head>
 	<body>
@@ -351,10 +351,10 @@ func init() {
     {{define "table"}}
         <table class="genetable" border="1">
             <tr>
-            <th><a href="javascript:void(0)" onclick="updateForm({order_by: 'cluster_id'})">Cluster ID</a></th>
-            <th><a href="javascript:void(0)" onclick="updateForm({order_by: 'cog_id'})">CogID</a></th>
+            <th><a href="javascript:void(0)" onclick="submitGeneTableForm({orderBy: 'cluster_id'})">Cluster ID</a></th>
+            <th><a href="javascript:void(0)" onclick="submitGeneTableForm({orderBy: 'cog_id'})">CogID</a></th>
             <th>Expected Length</th>
-            <th class="col-func"><a href="javascript:void(0)" onclick="updateForm({order_by: 'function'})">Function Description</a></th>
+            <th class="col-func"><a href="javascript:void(0)" onclick="submitGeneTableForm({orderBy: 'function'})">Function Description</a></th>
                 {{range .SelectedGenomeIDs}}<th class="rotate-text" title="{{index $.GenomeNames .}}"><span class="rotate-label">{{index $.GenomeNames .}}</span></th>{{end}}
             </tr>
             {{range .Rows}}
@@ -415,13 +415,13 @@ func init() {
 	<div class="pagination">
 		<div>Total page: {{.TotalPage}}</div>
 		{{if gt .CurrentPage 1}}
-			<a href="javascript:void(0);" onclick="updateForm({page: {{sub .CurrentPage 1}}})">&lt;&lt; prev</a>
+			<a href="javascript:void(0);" onclick="submitGeneTableForm({page: {{sub .CurrentPage 1}}})">&lt;&lt; prev</a>
 		{{else}}
 			<span>&lt;&lt; prev</span>
 		{{end}}
 		<span>{{.CurrentPage}} / {{.TotalPage}}</span>
 		{{if lt .CurrentPage .TotalPage}}
-			<a href="javascript:void(0);" onclick="updateForm({page: {{add .CurrentPage 1}}})">next &gt;&gt;</a>
+			<a href="javascript:void(0);" onclick="submitGeneTableForm({page: {{add .CurrentPage 1}}})">next &gt;&gt;</a>
 		{{else}}
 			<span>next &gt;&gt;</span>
 		{{end}}
