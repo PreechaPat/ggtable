@@ -55,8 +55,10 @@ func init() {
 
 	clusterInfoTmpl := `
 	{{define "cluster_info"}}
+		{{ $row := 0 }}
 		<table border="1">
 		<tr>
+			<th>#</th>
 			<th>Genome</th>
 			<th>Gene ID</th>
 			<th>Start</th>
@@ -69,6 +71,7 @@ func init() {
 		{{ range $genome_name, $genome := .Cluster.Genomes }}
 			{{ range $gene := $genome.Genes }}
 				<tr style="background-color: #d9f2e6; color: #333333">
+					<td>{{ $row = add $row 1 }}{{ $row }}</td>
 					<td>{{ genomeLabel $genome_name $.GenomeNames }}</td>
 					<td>{{ $gene.GeneID }}</td>
 					{{ with $gene.Region }}
@@ -92,6 +95,7 @@ func init() {
 			{{ end }}
 			{{ range $region := $genome.Regions }}
 				<tr style="background-color: #f2d9d9; color: #333333">
+					<td>{{ $row = add $row 1 }}{{ $row }}</td>
 					<td>{{ genomeLabel $genome_name $.GenomeNames }}</td>
 					<td> Region - {{ .GenomeID }}|{{ .ContigID }}:{{ .Start }}-{{ .End }} </td>
 					<td>{{ .Start }}</td>
