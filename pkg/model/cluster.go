@@ -63,7 +63,7 @@ func fetchClusterRegionsMap(ctx context.Context, db *sql.DB, clusterID string) (
 						'start', rm.start_location,
 						'end', rm.end_location
 					)
-				),
+				) FILTER (WHERE rm.genome_id IS NOT NULL),
 				json('[]')
 			)
 		FROM gene_clusters gc
@@ -83,6 +83,7 @@ func fetchClusterRegionsMap(ctx context.Context, db *sql.DB, clusterID string) (
 
 	out := make(map[string][]*Region)
 	for _, r := range regions {
+		// TODO: Deal with empty return of region later. Some cluster has NO region.
 		out[r.GenomeID] = append(out[r.GenomeID], r)
 	}
 	return out, nil

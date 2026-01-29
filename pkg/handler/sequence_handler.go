@@ -157,7 +157,13 @@ func (dbctx *DBContext) GetSequenceByClusterIDHandler(w http.ResponseWriter, r *
 			}
 		}
 
-		region, region_err = model.GetMultipleRegions(dbctx.Sequence_DB, region_request)
+		// Quick catch if region exists
+		if len(region_request) == 0 {
+			region = ""
+			region_err = nil
+		} else {
+			region, region_err = model.GetMultipleRegions(dbctx.Sequence_DB, region_request)
+		}
 	}
 
 	// Handle error
