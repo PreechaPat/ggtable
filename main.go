@@ -46,7 +46,7 @@ func ParseConfig() AppConfig {
 	_ = godotenv.Load() // best-effort; env wins if present
 
 	cfg := AppConfig{
-		Version:  "0.0.3",
+		Version:  "3.0.3",
 		DataDir:  getenv("GGTABLE_DATA", "./data"),
 		Title:    getenv("GGTITLE", ""),
 		Subtitle: getenv("GGSUBTITLE", ""),
