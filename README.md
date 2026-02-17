@@ -48,6 +48,9 @@ You can run Genome Table v3.0 in two ways:
 
 After running the container (via either method), the application will be accessible on http://localhost:8080.
 
+## Bug Fixes
+- Fixed a memory leak where BLAST jobs were not being cleaned up, causing memory usage to grow over time.
+
 ## Contributing
 Contributions are welcome! Guidelines and instructions will be added soon.
 

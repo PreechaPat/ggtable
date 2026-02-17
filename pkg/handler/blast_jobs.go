@@ -29,20 +29,24 @@ type BlastJob struct {
 	UpdatedAt time.Time
 }
 
+const maxJobs = 10
+
 // BlastJobManager stores BLAST job states indexed by job ID.
 type BlastJobManager struct {
-	mu   sync.RWMutex
-	jobs map[string]*BlastJob
+	mu       sync.RWMutex
+	jobs     map[string]*BlastJob
+	jobOrder []string
 }
 
-// NewBlastJobManager constructs a job manager with no jobs.
+// NewBlastJobManager constructs a job manager.
 func NewBlastJobManager() *BlastJobManager {
 	return &BlastJobManager{
-		jobs: make(map[string]*BlastJob),
+		jobs:     make(map[string]*BlastJob),
+		jobOrder: make([]string, 0, maxJobs+1),
 	}
 }
 
-// NewJob registers a queued job for the provided BLAST type.
+// NewJob registers a queued job for the provided BLAST type and cleans up old jobs.
 func (m *BlastJobManager) NewJob(blastType string) *BlastJob {
 	job := &BlastJob{
 		ID:        generateJobID(),
@@ -53,8 +57,17 @@ func (m *BlastJobManager) NewJob(blastType string) *BlastJob {
 	}
 
 	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	m.jobs[job.ID] = job
-	m.mu.Unlock()
+	m.jobOrder = append(m.jobOrder, job.ID)
+
+	if len(m.jobOrder) > maxJobs {
+		jobIDToRemove := m.jobOrder[0]
+		delete(m.jobs, jobIDToRemove)
+		m.jobOrder = m.jobOrder[1:]
+	}
+
 	return job
 }
 

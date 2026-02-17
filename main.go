@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 
@@ -102,16 +103,16 @@ func run(cfg AppConfig) error {
 	seqDB := path.Join(cfg.DataDir, "db/sequence_db")
 
 	// DB connect
-	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)", sqlitePath)
+	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(10000)&_pragma=synchronous(NORMAL)", sqlitePath)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		logger.Fatal("Cannot connect to database", zap.String("DB_LOC", sqlitePath), zap.Error(err))
 		return err
 	}
 
-	// db.SetMaxOpenConns(5)
-	// db.SetMaxIdleConns(5)
-	// db.SetConnMaxLifetime(0)
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(3 * time.Minute)
 
 	dbctx := &handler.DBContext{
 		DB:           db,
