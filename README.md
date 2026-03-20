@@ -29,7 +29,7 @@ You can run Genome Table v3.0 in two ways:
    ```bash
      docker run -p 8080:8080 \
        --mount type=bind,source="$(pwd)/data,target=/data" \
-       docker.io/preechapat/ggtable:3.0.0
+       docker.io/preechapat/ggtable:3.0.4
    ```
    Access the web app at: localhost:8080.
 
@@ -41,7 +41,7 @@ You can run Genome Table v3.0 in two ways:
    docker build . -t preechapat/ggtable:3.0.0-dev
    docker run -p 8080:8080 \
      --mount type=bind,source="$(pwd)/data,target=/data" \
-     preechapat/ggtable:3.0.0-dev
+     preechapat/ggtable:3.0.4
    ```
 
 ## Usage

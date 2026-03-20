@@ -67,7 +67,8 @@ func BLASTN(NCDB, inputFasta string) (string, error) {
 	return runBLASTCommand("blastn", NCDB, inputFasta)
 }
 
-// Parse BLAST result and add link to the
+// HACK: This uses regex and parse by line.
+// Parse BLAST result to replace sequence id (36SW|contig000167|P36SW_07281) -> (Pythium 123|contig000167|P36SW_07281)
 func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 	var output bytes.Buffer
 
@@ -75,7 +76,7 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 	genomeid_lookup := MAP_HEADER
 	reader := bufio.NewReader(htmlContent)
 
-	// Regex to capture genome, contig, and gene
+	// Regex to capture genome|contig|gene front and back
 	front_sequence_regex := regexp.MustCompile(`^(\S+)\|(\S+)\|(\S+)`)  // 36SW|contig000167|P36SW_07281           <a href="http://localhost:8080/blast#BL_ORD_ID:1277053">69.7</a>    2e-11
 	sequence_name_regex := regexp.MustCompile(`\s(\S+)\|(\S+)\|(\S+)$`) // &gt;<a name="BL_ORD_ID:951843"></a> P36SW|contig000167|P36SW_07281
 	space_detection := regexp.MustCompile(`\s{4,}`)
@@ -172,77 +173,3 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 	return &output, nil
 
 }
-
-// parseAndAddLink processes BLAST HTML output and enriches it with genome links.
-// func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
-// 	var output bytes.Buffer
-// 	reader := bufio.NewReader(htmlContent)
-
-// 	genomeIDLookup := MAP_HEADER // Assuming MAP_HEADER is predefined.
-// 	frontRegex := regexp.MustCompile(`^(\S+)\|(\S+)\|(\S+)`)
-// 	headerRegex := regexp.MustCompile(`\s(\S+)\|(\S+)\|(\S+)$`)
-// 	spaceDetection := regexp.MustCompile(`\s{4,}`)
-
-// 	for {
-// 		line, err := reader.ReadString('\n')
-// 		line = strings.TrimSpace(line)
-// 		if err != nil && err != io.EOF {
-// 			return nil, err
-// 		}
-
-// 		switch {
-// 		case strings.HasPrefix(line, "           "): // Skip problematic lines
-// 			output.WriteString(line)
-
-// 		case frontRegex.MatchString(line): // Process table lines
-// 			matches := frontRegex.FindStringSubmatch(line)
-// 			genomeID, contig, gene := matches[1], matches[2], matches[3]
-
-// 			genomeName, ok := genomeIDLookup[genomeID]
-// 			if !ok {
-// 				return nil, fmt.Errorf("unknown genome ID: %s", genomeID)
-// 			}
-
-// 			replacement := fmt.Sprintf("%s-%s|%s|%s", genomeName, genomeID, contig, gene)
-// 			parts := spaceDetection.Split(line, 3)
-// 			if len(parts) < 3 {
-// 				return nil, errors.New("invalid table line format")
-// 			}
-
-// 			newline := fmt.Sprintf("%-90s %-10s %-5s", replacement, parts[1], parts[2])
-// 			output.WriteString(newline)
-
-// 		case headerRegex.MatchString(line): // Process header lines
-// 			matches := headerRegex.FindStringSubmatch(line)
-// 			genomeID, contig, gene := matches[1], matches[2], matches[3]
-
-// 			genomeName, ok := genomeIDLookup[genomeID]
-// 			if !ok {
-// 				return nil, fmt.Errorf("unknown genome ID: %s", genomeID)
-// 			}
-
-// 			replacement := fmt.Sprintf("%s-%s|%s|%s", genomeName, genomeID, contig, gene)
-// 			link := fmt.Sprintf("/cluster/heatmap/%s/%s/%s", url.PathEscape(genomeID), url.PathEscape(contig), url.PathEscape(gene))
-// 			linkHTML := fmt.Sprintf("<a href=\"%s\">View in gene table</a>", link)
-
-// 			transformedLine := headerRegex.ReplaceAllString(line, replacement)
-// 			output.WriteString(fmt.Sprintf("%s %s", transformedLine, linkHTML))
-
-// 		case strings.HasPrefix(line, "Sequences producing significant alignments:"):
-// 			output.WriteString(fmt.Sprintf("%-90s %-10s %-5s", line, "(Bits)", "Value"))
-
-// 		case strings.HasSuffix(line, "Score     E"):
-// 			output.WriteString(fmt.Sprintf("%-90s %-10s %-5s", " ", "Score", "E"))
-
-// 		default:
-// 			output.WriteString(line)
-// 		}
-// 		output.WriteString("\n")
-
-// 		if err == io.EOF {
-// 			break
-// 		}
-// 	}
-
-// 	return &output, nil
-// }

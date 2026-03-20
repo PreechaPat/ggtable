@@ -29,7 +29,7 @@ type BlastJob struct {
 	UpdatedAt time.Time
 }
 
-const maxJobs = 10
+const maxJobs = 3
 
 // BlastJobManager stores BLAST job states indexed by job ID.
 type BlastJobManager struct {
