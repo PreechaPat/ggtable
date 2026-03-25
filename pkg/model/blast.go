@@ -67,6 +67,7 @@ func BLASTN(NCDB, inputFasta string) (string, error) {
 	return runBLASTCommand("blastn", NCDB, inputFasta)
 }
 
+// TODO: Replace this with more robust method
 // HACK: This uses regex and parse by line.
 // Parse BLAST result to replace sequence id (36SW|contig000167|P36SW_07281) -> (Pythium 123|contig000167|P36SW_07281)
 func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
@@ -79,7 +80,7 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 	// Regex to capture genome|contig|gene front and back
 	front_sequence_regex := regexp.MustCompile(`^(\S+)\|(\S+)\|(\S+)`)  // 36SW|contig000167|P36SW_07281           <a href="http://localhost:8080/blast#BL_ORD_ID:1277053">69.7</a>    2e-11
 	sequence_name_regex := regexp.MustCompile(`\s(\S+)\|(\S+)\|(\S+)$`) // &gt;<a name="BL_ORD_ID:951843"></a> P36SW|contig000167|P36SW_07281
-	space_detection := regexp.MustCompile(`\s{4,}`)
+	space_detection := regexp.MustCompile(`\s{2,}`)
 
 	for {
 		line, err := reader.ReadString('\n')
