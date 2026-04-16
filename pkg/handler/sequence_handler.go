@@ -21,7 +21,7 @@ type SequenceReponse struct {
 	Error           string `json:"error"`
 }
 
-func (dbctx *DBContext) GetGeneSequenceHandler(w http.ResponseWriter, r *http.Request) {
+func (appConfig *AppContext) GetGeneSequenceHandler(w http.ResponseWriter, r *http.Request) {
 
 	genome_id := r.URL.Query().Get("genome_id")
 	contig_id := r.URL.Query().Get("contig_id")
@@ -40,7 +40,7 @@ func (dbctx *DBContext) GetGeneSequenceHandler(w http.ResponseWriter, r *http.Re
 		Is_Prot:   is_prot,
 	}
 
-	respons, err := model.GetGeneSequence(dbctx.Sequence_DB, genome_gene_param)
+	respons, err := model.GetGeneSequence(appConfig.GCDB.SeqDB, genome_gene_param)
 
 	if err != nil {
 		http.Error(w, "Not found (maybe Samtools isn't available?)", http.StatusBadRequest)
@@ -50,7 +50,7 @@ func (dbctx *DBContext) GetGeneSequenceHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
-func (dbctx *DBContext) GetRegionSequenceHandler(w http.ResponseWriter, r *http.Request) {
+func (appConfig *AppContext) GetRegionSequenceHandler(w http.ResponseWriter, r *http.Request) {
 
 	genome_id := r.URL.Query().Get("genome_id")
 	contig_id := r.URL.Query().Get("contig_id")
@@ -80,8 +80,7 @@ func (dbctx *DBContext) GetRegionSequenceHandler(w http.ResponseWriter, r *http.
 		Is_Prot:   false,
 	}
 
-
-	respons, err := model.GetRegionSequence(dbctx.Sequence_DB, region_gene_param)
+	respons, err := model.GetRegionSequence(appConfig.GCDB.SeqDB, region_gene_param)
 
 	if err != nil {
 		http.Error(w, "No", http.StatusBadRequest)
@@ -91,7 +90,7 @@ func (dbctx *DBContext) GetRegionSequenceHandler(w http.ResponseWriter, r *http.
 	}
 }
 
-func (dbctx *DBContext) GetSequenceByClusterIDHandler(w http.ResponseWriter, r *http.Request) {
+func (appConfig *AppContext) GetSequenceByClusterIDHandler(w http.ResponseWriter, r *http.Request) {
 
 	cluster_id := r.URL.Query().Get("cluster_id")
 	is_prot_str := r.URL.Query().Get("is_prot")
@@ -102,7 +101,7 @@ func (dbctx *DBContext) GetSequenceByClusterIDHandler(w http.ResponseWriter, r *
 	}
 
 	// Get cluster info
-	cluster_info, errgenome := model.GetCluster(dbctx.DB, cluster_id)
+	cluster_info, errgenome := model.GetCluster(appConfig.GCDB.SQL, cluster_id)
 
 	if errgenome != nil {
 		// Build error string
@@ -133,7 +132,7 @@ func (dbctx *DBContext) GetSequenceByClusterIDHandler(w http.ResponseWriter, r *
 		}
 	}
 
-	gene, gene_err := model.GetMultipleGenes(dbctx.Sequence_DB, gene_request, is_prot)
+	gene, gene_err := model.GetMultipleGenes(appConfig.GCDB.SeqDB, gene_request, is_prot)
 
 	var region string
 	var region_err error
@@ -162,7 +161,7 @@ func (dbctx *DBContext) GetSequenceByClusterIDHandler(w http.ResponseWriter, r *
 			region = ""
 			region_err = nil
 		} else {
-			region, region_err = model.GetMultipleRegions(dbctx.Sequence_DB, region_request)
+			region, region_err = model.GetMultipleRegions(appConfig.GCDB.SeqDB, region_request)
 		}
 	}
 

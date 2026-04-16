@@ -1,4 +1,4 @@
-package handler
+package db
 
 import (
 	"crypto/rand"
@@ -31,23 +31,23 @@ type BlastJob struct {
 
 const maxJobs = 3
 
-// BlastJobManager stores BLAST job states indexed by job ID.
-type BlastJobManager struct {
+// BlastManager stores BLAST job states indexed by job ID.
+type BlastManager struct {
 	mu       sync.RWMutex
 	jobs     map[string]*BlastJob
 	jobOrder []string
 }
 
-// NewBlastJobManager constructs a job manager.
-func NewBlastJobManager() *BlastJobManager {
-	return &BlastJobManager{
+// NewBlastManager constructs a job manager.
+func NewBlastManager() *BlastManager {
+	return &BlastManager{
 		jobs:     make(map[string]*BlastJob),
 		jobOrder: make([]string, 0, maxJobs+1),
 	}
 }
 
 // NewJob registers a queued job for the provided BLAST type and cleans up old jobs.
-func (m *BlastJobManager) NewJob(blastType string) *BlastJob {
+func (m *BlastManager) NewJob(blastType string) *BlastJob {
 	job := &BlastJob{
 		ID:        generateJobID(),
 		BlastType: blastType,
@@ -72,14 +72,14 @@ func (m *BlastJobManager) NewJob(blastType string) *BlastJob {
 }
 
 // SetRunning marks the job as running.
-func (m *BlastJobManager) SetRunning(jobID string) {
+func (m *BlastManager) SetRunning(jobID string) {
 	m.updateJob(jobID, func(job *BlastJob) {
 		job.Status = BlastJobRunning
 	})
 }
 
 // CompleteJob stores the BLAST output and marks the job complete.
-func (m *BlastJobManager) CompleteJob(jobID string, result string) {
+func (m *BlastManager) CompleteJob(jobID string, result string) {
 	m.updateJob(jobID, func(job *BlastJob) {
 		job.Status = BlastJobCompleted
 		job.Result = result
@@ -87,7 +87,7 @@ func (m *BlastJobManager) CompleteJob(jobID string, result string) {
 }
 
 // FailJob records a failure and attaches a user-facing error message.
-func (m *BlastJobManager) FailJob(jobID string, err error) {
+func (m *BlastManager) FailJob(jobID string, err error) {
 	m.updateJob(jobID, func(job *BlastJob) {
 		job.Status = BlastJobFailed
 		job.Error = err.Error()
@@ -95,14 +95,14 @@ func (m *BlastJobManager) FailJob(jobID string, err error) {
 }
 
 // GetJob fetches a job by ID.
-func (m *BlastJobManager) GetJob(jobID string) (*BlastJob, bool) {
+func (m *BlastManager) GetJob(jobID string) (*BlastJob, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	job, ok := m.jobs[jobID]
 	return job, ok
 }
 
-func (m *BlastJobManager) updateJob(jobID string, update func(job *BlastJob)) {
+func (m *BlastManager) updateJob(jobID string, update func(job *BlastJob)) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

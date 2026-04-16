@@ -2,15 +2,15 @@ package db
 
 import "database/sql"
 
-type GGDB struct {
-	genetableSQL *sql.DB
-	SeqDB        *SequenceDB
+type GeneClusterDB struct {
+	SQL   *sql.DB
+	SeqDB *SequenceDB
 }
 
-func NewGGDB(db *sql.DB, seqdb *SequenceDB) *GGDB {
+func NewGeneClusterDB(db *sql.DB, seqdb *SequenceDB) *GeneClusterDB {
 	// Check for db schema and version here later
-	return &GGDB{
-		genetableSQL: db,
-		SeqDB:        seqdb,
+	return &GeneClusterDB{
+		SQL:   db,
+		SeqDB: seqdb,
 	}
 }

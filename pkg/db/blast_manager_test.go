@@ -1,24 +1,19 @@
-package handler
+package db
 
 import (
 	"fmt"
 	"testing"
 )
 
-func TestBlastJobManager_JobLimit(t *testing.T) {
-	m := NewBlastJobManager()
-	numJobsToAdd := 15
+func TestBlastManager_JobLimit(t *testing.T) {
+	m := NewBlastManager()
+	numJobsToAdd := 10
 	
 	// Create predictable job IDs
 	var jobIDs []string
 	for i := 0; i < numJobsToAdd; i++ {
 		jobIDs = append(jobIDs, fmt.Sprintf("job-%d", i))
 	}
-
-	// Overwrite generateJobID for predictable IDs during this test.
-	// This is a common pattern for testing un-exported functions or variables.
-	// In this case, we can't do that easily without refactoring the main code.
-	// So, we'll manually add jobs and trigger the cleanup logic.
 
 	m.mu.Lock()
 	for i := 0; i < numJobsToAdd; i++ {
@@ -48,16 +43,16 @@ func TestBlastJobManager_JobLimit(t *testing.T) {
 		t.Errorf("expected %d jobOrder length, but got %d", maxJobs, len(m.jobOrder))
 	}
 
-	// Check that the first 5 jobs are gone
-	for i := 0; i < 5; i++ {
+	// Check that the first numJobsToAdd - maxJobs jobs are gone
+	for i := 0; i < numJobsToAdd-maxJobs; i++ {
 		jobID := jobIDs[i]
 		if _, ok := m.jobs[jobID]; ok {
 			t.Errorf("job %s should have been removed", jobID)
 		}
 	}
 
-	// Check that the last 10 jobs are still there
-	for i := 5; i < numJobsToAdd; i++ {
+	// Check that the last maxJobs jobs are still there
+	for i := numJobsToAdd - maxJobs; i < numJobsToAdd; i++ {
 		jobID := jobIDs[i]
 		if _, ok := m.jobs[jobID]; !ok {
 			t.Errorf("job %s should be present", jobID)

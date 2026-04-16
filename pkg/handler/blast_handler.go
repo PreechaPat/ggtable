@@ -9,13 +9,14 @@ import (
 	"strings"
 
 	"github.com/yumyai/ggtable/logger"
+	"github.com/yumyai/ggtable/pkg/db"
 	"github.com/yumyai/ggtable/pkg/model"
 	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
 )
 
-func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) {
-	if dbctx.BlastJobs == nil {
+func (appConfig *AppContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) {
+	if appConfig.BlastManager == nil {
 		http.Error(w, "BLAST service unavailable", http.StatusInternalServerError)
 		return
 	}
@@ -39,8 +40,8 @@ func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	job := dbctx.BlastJobs.NewJob(req.BlastType)
-	go dbctx.runBlastJob(job.ID, req)
+	job := appConfig.BlastManager.NewJob(req.BlastType)
+	go appConfig.runBlastJob(job.ID, req)
 
 	if prefersJSON(r) {
 		w.Header().Set("Content-Type", "application/json")
@@ -56,9 +57,9 @@ func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, "/blast/"+job.ID, http.StatusSeeOther)
 }
 
-func (dbctx *DBContext) runBlastJob(jobID string, req model.BlastSearchRequest) {
+func (appConfig *AppContext) runBlastJob(jobID string, req model.BlastSearchRequest) {
 
-	dbctx.BlastJobs.SetRunning(jobID)
+	appConfig.BlastManager.SetRunning(jobID)
 
 	var (
 		output string
@@ -67,24 +68,24 @@ func (dbctx *DBContext) runBlastJob(jobID string, req model.BlastSearchRequest) 
 
 	switch req.BlastType {
 	case "blastn":
-		output, err = model.BLASTN(dbctx.NuclBLAST_DB, req.Sequence)
+		output, err = model.BLASTN(appConfig.NuclBLASTDB, req.Sequence)
 	case "blastp":
-		output, err = model.BLASTP(dbctx.ProtBLAST_DB, req.Sequence)
+		output, err = model.BLASTP(appConfig.ProtBLASTDB, req.Sequence)
 	default:
 		err = errors.New("unsupported BLAST type")
 	}
 
 	if err != nil {
 		logger.Error("BLAST job failed", zap.String("job_id", jobID), zap.Error(err))
-		dbctx.BlastJobs.FailJob(jobID, err)
+		appConfig.BlastManager.FailJob(jobID, err)
 		return
 	}
 
-	dbctx.BlastJobs.CompleteJob(jobID, output)
+	appConfig.BlastManager.CompleteJob(jobID, output)
 }
 
-func (dbctx *DBContext) BlastStatusPage(w http.ResponseWriter, r *http.Request) {
-	if dbctx.BlastJobs == nil {
+func (appConfig *AppContext) BlastStatusPage(w http.ResponseWriter, r *http.Request) {
+	if appConfig.BlastManager == nil {
 		http.Error(w, "BLAST service unavailable", http.StatusInternalServerError)
 		return
 	}
@@ -95,7 +96,7 @@ func (dbctx *DBContext) BlastStatusPage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	job, ok := dbctx.BlastJobs.GetJob(jobID)
+	job, ok := appConfig.BlastManager.GetJob(jobID)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -109,7 +110,7 @@ func (dbctx *DBContext) BlastStatusPage(w http.ResponseWriter, r *http.Request) 
 		BlastReport:            job.Result,
 		Status:                 string(job.Status),
 		ErrorMessage:           job.Error,
-		ShouldRefresh:          job.Status == BlastJobQueued || job.Status == BlastJobRunning,
+		ShouldRefresh:          job.Status == db.BlastJobQueued || job.Status == db.BlastJobRunning,
 		RefreshIntervalSeconds: 5,
 	}
 
@@ -126,7 +127,7 @@ func prefersJSON(r *http.Request) bool {
 	return strings.EqualFold(r.Header.Get("X-Requested-With"), "XMLHttpRequest")
 }
 
-func (dbctx *DBContext) BlastNRedirectPage(w http.ResponseWriter, r *http.Request) {
+func (appConfig *AppContext) BlastNRedirectPage(w http.ResponseWriter, r *http.Request) {
 
 	// Get result from get get gene sequence and
 
@@ -155,7 +156,7 @@ func (dbctx *DBContext) BlastNRedirectPage(w http.ResponseWriter, r *http.Reques
 		Is_Prot:   false,
 	}
 
-	seq, errq := model.GetRegionSequence(dbctx.Sequence_DB, req)
+	seq, errq := model.GetRegionSequence(appConfig.GCDB.SeqDB, req)
 
 	if errq != nil {
 		logger.Error("ERR")
@@ -173,7 +174,7 @@ func (dbctx *DBContext) BlastNRedirectPage(w http.ResponseWriter, r *http.Reques
 
 }
 
-func (dbctx *DBContext) BlastPRedirectPage(w http.ResponseWriter, r *http.Request) {
+func (appConfig *AppContext) BlastPRedirectPage(w http.ResponseWriter, r *http.Request) {
 
 	genome_id := r.URL.Query().Get("genome_id")
 	contig_id := r.URL.Query().Get("contig_id")
@@ -192,7 +193,7 @@ func (dbctx *DBContext) BlastPRedirectPage(w http.ResponseWriter, r *http.Reques
 		Is_Prot:   true,
 	}
 
-	seq, errq := model.GetGeneSequence(dbctx.Sequence_DB, req)
+	seq, errq := model.GetGeneSequence(appConfig.GCDB.SeqDB, req)
 
 	if errq != nil {
 		logger.Error("ERR")

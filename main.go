@@ -16,7 +16,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/yumyai/ggtable/logger"
-	ggdb "github.com/yumyai/ggtable/pkg/db"
+	"github.com/yumyai/ggtable/pkg/db"
 	"github.com/yumyai/ggtable/pkg/handler"
 	"github.com/yumyai/ggtable/pkg/model"
 	"go.uber.org/zap"
@@ -104,22 +104,23 @@ func run(cfg AppConfig) error {
 
 	// DB connect
 	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(10000)&_pragma=synchronous(NORMAL)", sqlitePath)
-	db, err := sql.Open("sqlite", dsn)
+	dbConn, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		logger.Fatal("Cannot connect to database", zap.String("DB_LOC", sqlitePath), zap.Error(err))
 		return err
 	}
 
-	db.SetMaxOpenConns(10)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(3 * time.Minute)
+	dbConn.SetMaxOpenConns(10)
+	dbConn.SetMaxIdleConns(5)
+	dbConn.SetConnMaxLifetime(3 * time.Minute)
 
-	dbctx := &handler.DBContext{
-		DB:           db,
-		Sequence_DB:  &ggdb.SequenceDB{Dir: seqDB},
-		ProtBLAST_DB: protDB,
-		NuclBLAST_DB: nuclDB,
-		BlastJobs:    handler.NewBlastJobManager(),
+	gcdb := db.NewGeneClusterDB(dbConn, &db.SequenceDB{Dir: seqDB})
+
+	appConfig := &handler.AppContext{
+		GCDB:         gcdb,
+		BlastManager: db.NewBlastManager(),
+		ProtBLASTDB:  protDB,
+		NuclBLASTDB:  nuclDB,
 	}
 
 	logger.Info("Start", zap.String("Version", cfg.Version))
@@ -129,10 +130,10 @@ func run(cfg AppConfig) error {
 	}
 
 	// Router
-	mux := NewRouter(dbctx)
+	mux := NewRouter(appConfig)
 
 	// Initialize header map from genome_id to full name
-	if err := model.InitMapHeader(db); err != nil {
+	if err := model.InitMapHeader(dbConn); err != nil {
 		logger.Fatal("Cannot init header", zap.String("MAP_HEADER_ERR", err.Error()))
 		return err
 	}
@@ -153,7 +154,7 @@ func run(cfg AppConfig) error {
 }
 
 // Move to router.go in the next iteration
-func NewRouter(dbctx *handler.DBContext) *http.ServeMux {
+func NewRouter(appConfig *handler.AppContext) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Error route
@@ -162,24 +163,24 @@ func NewRouter(dbctx *handler.DBContext) *http.ServeMux {
 	})
 
 	// Main routes
-	mux.HandleFunc("GET /", dbctx.MainPage)
-	mux.HandleFunc("GET /search", dbctx.ClusterSearchPage)
-	mux.HandleFunc("POST /blast", dbctx.BlastSearchPage)
-	mux.HandleFunc("GET /blast/{job_id}", dbctx.BlastStatusPage)
-	mux.HandleFunc("GET /cluster/table/{cluster_id}", dbctx.ClusterDetailPage) // Dedicated cluster table page.
-	mux.HandleFunc("GET /cluster/heatmap/{genome_id}/{contig_id}/{gene_id}", dbctx.ClusterHeatmapPage)
-	mux.HandleFunc("GET /redirect/blastn/", dbctx.BlastNRedirectPage)
-	mux.HandleFunc("GET /redirect/blastp/", dbctx.BlastPRedirectPage)
+	mux.HandleFunc("GET /", appConfig.MainPage)
+	mux.HandleFunc("GET /search", appConfig.ClusterSearchPage)
+	mux.HandleFunc("POST /blast", appConfig.BlastSearchPage)
+	mux.HandleFunc("GET /blast/{job_id}", appConfig.BlastStatusPage)
+	mux.HandleFunc("GET /cluster/table/{cluster_id}", appConfig.ClusterDetailPage) // Dedicated cluster table page.
+	mux.HandleFunc("GET /cluster/heatmap/{genome_id}/{contig_id}/{gene_id}", appConfig.ClusterHeatmapPage)
+	mux.HandleFunc("GET /redirect/blastn/", appConfig.BlastNRedirectPage)
+	mux.HandleFunc("GET /redirect/blastp/", appConfig.BlastPRedirectPage)
 
 	// API routes
-	// mux.HandleFunc("GET /api/v1/search", dbctx.ClusterSearchAPI)
+	// mux.HandleFunc("GET /api/v1/search", appConfig.ClusterSearchAPI)
 	mux.HandleFunc("GET /api/v1/health", handler.HealthCheck)
-	mux.HandleFunc("GET /api/v1/cluster/{cluster_id}", dbctx.ClusterDetailPage)
+	mux.HandleFunc("GET /api/v1/cluster/{cluster_id}", appConfig.ClusterDetailPage)
 
 	// Get sequences
-	mux.HandleFunc("GET /sequence/by-gene", dbctx.GetGeneSequenceHandler)
-	mux.HandleFunc("GET /sequence/by-region", dbctx.GetRegionSequenceHandler)
-	mux.HandleFunc("GET /sequence/by-cluster", dbctx.GetSequenceByClusterIDHandler)
+	mux.HandleFunc("GET /sequence/by-gene", appConfig.GetGeneSequenceHandler)
+	mux.HandleFunc("GET /sequence/by-region", appConfig.GetRegionSequenceHandler)
+	mux.HandleFunc("GET /sequence/by-cluster", appConfig.GetSequenceByClusterIDHandler)
 
 	// Static
 	setupStaticFiles(mux)

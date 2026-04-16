@@ -54,7 +54,7 @@ func normalizeOrderDir(raw string) string {
 }
 
 // Search page
-func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request) {
+func (appConfig *AppContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Error parsing form", http.StatusBadRequest)
@@ -133,8 +133,8 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 		// RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 
-	rows, _ := model.SearchGeneCluster(dbctx.DB, search_request)
-	rowNum, _ := model.CountSearchRow(dbctx.DB, search_request)
+	rows, _ := model.SearchGeneCluster(appConfig.GCDB.SQL, search_request)
+	rowNum, _ := model.CountSearchRow(appConfig.GCDB.SQL, search_request)
 
 	totalPageNum := (rowNum + pageSize - 1) / pageSize // Rounding up
 
@@ -147,7 +147,7 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 }
 
 // Main page.
-func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
+func (appConfig *AppContext) MainPage(w http.ResponseWriter, r *http.Request) {
 
 	const PAGE_SIZE = defaultPageSize
 
@@ -192,7 +192,7 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		Color_By:     colorBy,
 	}
 
-	rows, err := model.GetMainPage(dbctx.DB, search_request) // Capture the error here
+	rows, err := model.GetMainPage(appConfig.GCDB.SQL, search_request) // Capture the error here
 	if err != nil {
 		logger.Error("Failed to get main page data from model",
 			zap.String("url", r.URL.Path),
@@ -202,7 +202,7 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		return // Important: stop execution after sending error
 	}
 
-	rowNum, err := model.CountAllRow(dbctx.DB)
+	rowNum, err := model.CountAllRow(appConfig.GCDB.SQL)
 
 	// rowNum, err := model.CountRowByQuery(, ) // Capture the error here
 	if err != nil {

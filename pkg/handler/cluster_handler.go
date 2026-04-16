@@ -12,7 +12,7 @@ import (
 )
 
 // ClusterHeatmapPage renders the search-style heatmap for a single cluster resolved via genome/contig/gene path params.
-func (dbctx *DBContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.Request) {
+func (appConfig *AppContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.Request) {
 
 	genome := r.PathValue("genome_id")
 	contig := r.PathValue("contig_id")
@@ -35,7 +35,7 @@ func (dbctx *DBContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.Reques
 		zap.String("gene", gene),
 	)
 
-	cluster_ids, err := model.GetClusterID(dbctx.DB, genome_gene_param)
+	cluster_ids, err := model.GetClusterID(appConfig.GCDB.SQL, genome_gene_param)
 
 	// Check for all possible errors
 	if err != nil {
@@ -47,7 +47,7 @@ func (dbctx *DBContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	cluster_prob, err2 := model.GetCluster(dbctx.DB, cluster_ids[0])
+	cluster_prob, err2 := model.GetCluster(appConfig.GCDB.SQL, cluster_ids[0])
 
 	// Should be possible, massive error
 	if err2 != nil {
@@ -99,11 +99,11 @@ func (dbctx *DBContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.Reques
 }
 
 // ClusterDetailPage renders the dedicated table view for a cluster addressed by ID.
-func (dbctx *DBContext) ClusterDetailPage(w http.ResponseWriter, r *http.Request) {
+func (appConfig *AppContext) ClusterDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	cluster_id := r.PathValue("cluster_id")
 
-	res, err_query := model.GetCluster(dbctx.DB, cluster_id)
+	res, err_query := model.GetCluster(appConfig.GCDB.SQL, cluster_id)
 
 	if err_query != nil {
 		panic(err_query)
