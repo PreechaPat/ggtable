@@ -7,8 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-
-	"github.com/yumyai/ggtable/pkg/handler/request"
 )
 
 // Defining possible error
@@ -68,21 +66,17 @@ func (seqdb *SequenceDB) getConcatContigNucl() string {
 	return path.Join(seqdb.Dir, "concat_sequences", "genetable_genomes.fna.gz")
 }
 
-func (seqdb *SequenceDB) GetGeneSequence(req request.GeneGetRequest) ([]byte, error) {
+func (seqdb *SequenceDB) GetGeneSequence(genomeID, contigID, geneID string, isProt bool) ([]byte, error) {
 
-	// genome_id := req.Genome_ID
-	// contig_id := req.Contig_ID
-	// gene_id := req.Gene_ID
-	prot := req.Is_Prot
 	var all_fasta_file string
-	if prot {
+	if isProt {
 		all_fasta_file = seqdb.getConcatAllGeneProt()
 	} else {
 		all_fasta_file = seqdb.getConcatAllGeneNucl()
 	}
 
 	// Use samtools to fetch data
-	seq_name := geneRequestToSAMrequest(&req)
+	seq_name := fmt.Sprintf("%s|%s|%s", genomeID, contigID, geneID)
 
 	// samtools faidx all_genes.faa.gz "KCB09|contig000007|KCB09_00064:50-100"
 	args := []string{"faidx", all_fasta_file, seq_name}
@@ -98,12 +92,12 @@ func (seqdb *SequenceDB) GetGeneSequence(req request.GeneGetRequest) ([]byte, er
 	return output, nil
 }
 
-func (seqdb *SequenceDB) GetRegionSequence(req request.RegionGetRequest) ([]byte, error) {
+func (seqdb *SequenceDB) GetRegionSequence(genomeID, contigID string, start, end uint64) ([]byte, error) {
 
 	// Use samtools to fetch data
 	// "KCB09|contig000007|KCB09_00064:50-100"
 	all_contigs_file := seqdb.getConcatContigNucl()
-	seq_name := regionRequestToSAMrequest(&req)
+	seq_name := fmt.Sprintf("%s|%s:%d-%d", genomeID, contigID, start, end)
 
 	args := []string{"faidx", all_contigs_file, seq_name}
 	cmd := exec.Command("samtools", args...)
@@ -117,21 +111,21 @@ func (seqdb *SequenceDB) GetRegionSequence(req request.RegionGetRequest) ([]byte
 	return output, nil
 }
 
-// Retrieves gene sequences using Samtools faidx based on multiple gene requests.
-// TODO: Consider preloading Samtools to improve responsiveness.
-func (seqdb *SequenceDB) GetMultipleGene(genereqs []*request.GeneGetRequest, is_prot bool) ([]byte, error) {
+// Retrieves gene sequences using Samtools faidx based on multiple gene names.
+// geneNames should be formatted as "genomeID|contigID|geneID"
+func (seqdb *SequenceDB) GetMultipleGene(geneNames []string, isProt bool) ([]byte, error) {
 
 	var geneInputBuffer bytes.Buffer
 	var all_gene_file string
 
 	// Input for samtools ( stdin )
 	// The input is multiple lines of sequences id e.g. KCB09|contig000007|KCB09_00064:50-100
-	for _, s := range genereqs {
-		geneInputBuffer.WriteString(geneRequestToSAMrequest(s))
+	for _, s := range geneNames {
+		geneInputBuffer.WriteString(s)
 		geneInputBuffer.WriteString("\n")
 	}
 
-	if is_prot {
+	if isProt {
 		all_gene_file = seqdb.getConcatAllGeneProt()
 	} else {
 		all_gene_file = seqdb.getConcatAllGeneNucl()
@@ -153,13 +147,15 @@ func (seqdb *SequenceDB) GetMultipleGene(genereqs []*request.GeneGetRequest, is_
 
 }
 
-func (seqdb *SequenceDB) GetMultipleRegion(regreqs []*request.RegionGetRequest) ([]byte, error) {
+// Retrieves region sequences using Samtools faidx based on multiple region names.
+// regionNames should be formatted as "genomeID|contigID:start-end"
+func (seqdb *SequenceDB) GetMultipleRegion(regionNames []string) ([]byte, error) {
 
 	var contigInputBuffer bytes.Buffer
 
 	// Make buffer for region
-	for _, s := range regreqs {
-		contigInputBuffer.WriteString(regionRequestToSAMrequest(s))
+	for _, s := range regionNames {
+		contigInputBuffer.WriteString(s)
 		contigInputBuffer.WriteString("\n")
 	}
 
@@ -179,12 +175,4 @@ func (seqdb *SequenceDB) GetMultipleRegion(regreqs []*request.RegionGetRequest) 
 	}
 
 	return output, nil
-}
-
-func geneRequestToSAMrequest(req *request.GeneGetRequest) string {
-	return fmt.Sprintf("%s|%s|%s", req.Genome_ID, req.Contig_ID, req.Gene_ID)
-}
-
-func regionRequestToSAMrequest(req *request.RegionGetRequest) string {
-	return fmt.Sprintf("%s|%s:%d-%d", req.Genome_ID, req.Contig_ID, req.Start, req.End)
 }

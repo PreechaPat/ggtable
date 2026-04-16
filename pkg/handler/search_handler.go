@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/yumyai/ggtable/logger"
-	"github.com/yumyai/ggtable/pkg/handler/request"
 	"github.com/yumyai/ggtable/pkg/model"
 	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
@@ -64,13 +63,13 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 
 	searchTerm := r.URL.Query().Get("search")
 	searchBy := r.URL.Query().Get("search_by")
-	searchByF := request.NewClusterField(searchBy)
+	searchByF := model.ParseClusterField(searchBy)
 
 	orderBy := r.URL.Query().Get("order_by")
 	if orderBy == "" {
 		orderBy = defaultOrderBy
 	}
-	orderByF := request.NewClusterField(orderBy)
+	orderByF := model.ParseClusterField(orderBy)
 
 	currentPage := parsePositiveIntFallback(r.URL.Query().Get("page"), defaultPageNumber)
 	pageSize := parsePositiveIntFallback(r.URL.Query().Get("page_size"), defaultPageSize)
@@ -122,7 +121,7 @@ func (dbctx *DBContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request
 		zap.String("color_by", colorBy),
 	)
 
-	var search_request = request.ClusterSearchRequest{
+	var search_request = model.ClusterSearchRequest{
 		Search_For:   searchTerm,
 		Search_Field: searchByF,
 		Order_By:     orderByF,
@@ -158,7 +157,7 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 	if orderBy == "" {
 		orderBy = defaultOrderBy
 	}
-	orderByF := request.NewClusterField(orderBy)
+	orderByF := model.ParseClusterField(orderBy)
 	orderDir := normalizeOrderDir(r.URL.Query().Get("order_dir"))
 
 	// Color selection canonicalization
@@ -182,9 +181,9 @@ func (dbctx *DBContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		zap.String("color_by", colorBy),
 	)
 
-	var search_request = request.ClusterSearchRequest{
+	var search_request = model.ClusterSearchRequest{
 		Search_For:   "",
-		Search_Field: request.ClusterFieldFunction,
+		Search_Field: model.ClusterFieldFunction,
 		Order_By:     orderByF,
 		Order_Dir:    orderDir,
 		Page:         pageNum,

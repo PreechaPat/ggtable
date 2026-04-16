@@ -10,8 +10,24 @@ import (
 	"strings"
 
 	ggdb "github.com/yumyai/ggtable/pkg/db"
-	"github.com/yumyai/ggtable/pkg/handler/request"
 )
+
+// Get gene sequence
+type GeneGetRequest struct {
+	Genome_ID string `json:"genome_id"`
+	Contig_ID string `json:"contig_id"`
+	Gene_ID   string `json:"gene_id"`
+	Is_Prot   bool   `json:"is_prot"`
+}
+
+// Get region sequence
+type RegionGetRequest struct {
+	Genome_ID string `json:"genome_id"`
+	Contig_ID string `json:"contig_id"`
+	Start     uint64 `json:"start"`
+	End       uint64 `json:"end"`
+	Is_Prot   bool   `json:"is_prot"`
+}
 
 // Get id name map of genome
 func GetGenomes(db *sql.DB) (map[string]string, error) {
@@ -49,22 +65,9 @@ func GetGenomes(db *sql.DB) (map[string]string, error) {
 	return results, nil
 }
 
-func GetGeneSequence(seqdb *ggdb.SequenceDB, req request.GeneGetRequest) (string, error) {
+func GetGeneSequence(seqdb *ggdb.SequenceDB, req GeneGetRequest) (string, error) {
 
-	raw_response, err := seqdb.GetGeneSequence(req)
-
-	if err != nil {
-		return "", err
-	}
-
-	ret := supplyFastaHeader(raw_response, MAP_HEADER).String()
-
-	return ret, nil
-}
-
-func GetRegionSequence(seqdb *ggdb.SequenceDB, req request.RegionGetRequest) (string, error) {
-
-	raw_response, err := seqdb.GetRegionSequence(req)
+	raw_response, err := seqdb.GetGeneSequence(req.Genome_ID, req.Contig_ID, req.Gene_ID, req.Is_Prot)
 
 	if err != nil {
 		return "", err
@@ -75,9 +78,27 @@ func GetRegionSequence(seqdb *ggdb.SequenceDB, req request.RegionGetRequest) (st
 	return ret, nil
 }
 
-func GetMultipleGenes(seqdb *ggdb.SequenceDB, req []*request.GeneGetRequest, is_prot bool) (string, error) {
+func GetRegionSequence(seqdb *ggdb.SequenceDB, req RegionGetRequest) (string, error) {
 
-	raw_output, err := seqdb.GetMultipleGene(req, is_prot)
+	raw_response, err := seqdb.GetRegionSequence(req.Genome_ID, req.Contig_ID, req.Start, req.End)
+
+	if err != nil {
+		return "", err
+	}
+
+	ret := supplyFastaHeader(raw_response, MAP_HEADER).String()
+
+	return ret, nil
+}
+
+func GetMultipleGenes(seqdb *ggdb.SequenceDB, req []*GeneGetRequest, is_prot bool) (string, error) {
+
+	geneNames := make([]string, 0, len(req))
+	for _, r := range req {
+		geneNames = append(geneNames, fmt.Sprintf("%s|%s|%s", r.Genome_ID, r.Contig_ID, r.Gene_ID))
+	}
+
+	raw_output, err := seqdb.GetMultipleGene(geneNames, is_prot)
 
 	if err != nil {
 		return "", err
@@ -88,9 +109,14 @@ func GetMultipleGenes(seqdb *ggdb.SequenceDB, req []*request.GeneGetRequest, is_
 	return ret, nil
 }
 
-func GetMultipleRegions(seqdb *ggdb.SequenceDB, req []*request.RegionGetRequest) (string, error) {
+func GetMultipleRegions(seqdb *ggdb.SequenceDB, req []*RegionGetRequest) (string, error) {
 
-	raw_output, err := seqdb.GetMultipleRegion(req)
+	regionNames := make([]string, 0, len(req))
+	for _, r := range req {
+		regionNames = append(regionNames, fmt.Sprintf("%s|%s:%d-%d", r.Genome_ID, r.Contig_ID, r.Start, r.End))
+	}
+
+	raw_output, err := seqdb.GetMultipleRegion(regionNames)
 
 	if err != nil {
 		return "", err
@@ -101,7 +127,39 @@ func GetMultipleRegions(seqdb *ggdb.SequenceDB, req []*request.RegionGetRequest)
 	return ret, nil
 }
 
-// Add genome name to fasta header
+func GetClusterID(db *sql.DB, gene_request GeneGetRequest) ([]string, error) {
+	ctx := context.TODO()
+
+	const q = `
+		SELECT DISTINCT cluster_id
+		FROM gene_matches
+		WHERE genome_id = ? AND gene_id = ?
+	`
+	stm, err := db.PrepareContext(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer stm.Close()
+
+	rows, err := stm.QueryContext(ctx, gene_request.Genome_ID, gene_request.Gene_ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []string
+	for rows.Next() {
+		var clusterID string
+		if err := rows.Scan(&clusterID); err != nil {
+			return nil, err
+		}
+		results = append(results, clusterID)
+	}
+
+	return results, nil
+}
+
+// Add name to fasta header
 func supplyFastaHeader(input []byte, genomeMap map[string]string) *bytes.Buffer {
 	var output bytes.Buffer
 
@@ -131,40 +189,4 @@ func supplyFastaHeader(input []byte, genomeMap map[string]string) *bytes.Buffer 
 	}
 
 	return &output
-}
-
-// From genome + gene, return all cluster that match.
-func GetClusterID(db *sql.DB, gene_request request.GeneGetRequest) ([]string, error) {
-
-	ctx := context.TODO()
-
-	qstring := `select cluster_id from gene_matches where genome_id == ? and gene_id == ?`
-
-	stm, err := db.PrepareContext(ctx, qstring)
-	if err != nil {
-		return nil, err
-	}
-
-	defer stm.Close()
-
-	rows, err := stm.QueryContext(ctx, gene_request.Genome_ID, gene_request.Gene_ID)
-
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var results []string
-
-	for rows.Next() {
-
-		var r string
-		if err := rows.Scan(&r); err != nil {
-			panic(err)
-		}
-
-		results = append(results, r)
-	}
-
-	return results, nil
 }

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/yumyai/ggtable/logger"
-	"github.com/yumyai/ggtable/pkg/handler/request"
 	"github.com/yumyai/ggtable/pkg/model"
 	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
@@ -24,7 +23,7 @@ func (dbctx *DBContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	genome_gene_param := request.GeneGetRequest{
+	genome_gene_param := model.GeneGetRequest{
 		Genome_ID: genome,
 		Contig_ID: contig,
 		Gene_ID:   gene,
@@ -80,9 +79,9 @@ func (dbctx *DBContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.Reques
 		includeGenome = model.ALL_GENOME_ID
 	}
 
-	var search_request = request.ClusterSearchRequest{
+	var search_request = model.ClusterSearchRequest{
 		Search_For:   "",
-		Search_Field: request.NewClusterField(""),
+		Search_Field: model.ParseClusterField(""),
 		Order_Dir:    defaultOrderDir,
 		Page:         1,
 		Page_Size:    1,

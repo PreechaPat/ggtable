@@ -4,7 +4,6 @@ import (
 	"html/template"
 	"io"
 
-	"github.com/yumyai/ggtable/pkg/handler/request"
 	"github.com/yumyai/ggtable/pkg/model"
 )
 
@@ -202,7 +201,7 @@ func init() {
 }
 
 // RenderClusterStandaloneHeatmapPage renders the cluster heatmap without search/BLAST controls.
-func RenderClusterStandaloneHeatmapPage(w io.Writer, rows []*model.Cluster, searchRequest request.ClusterSearchRequest, totalPage int) error {
+func RenderClusterStandaloneHeatmapPage(w io.Writer, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) error {
 	data := buildClusterHeatmapPageData(rows, searchRequest, totalPage)
 	return clusterPageTemplate.Execute(w, data)
 }

@@ -5,8 +5,6 @@ import (
 	"os"
 	"path"
 	"testing"
-
-	"github.com/yumyai/ggtable/pkg/handler/request"
 )
 
 func mockInput(t testing.T) {
@@ -45,14 +43,7 @@ func TestGetGeneSequence(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	req := request.GeneGetRequest{
-		Genome_ID: "KCB09",
-		Contig_ID: "contig000007",
-		Gene_ID:   "KCB09_00064",
-		Is_Prot:   true,
-	}
-
-	seq, err := sdb.GetGeneSequence(req)
+	seq, err := sdb.GetGeneSequence("KCB09", "contig000007", "KCB09_00064", true)
 
 	if err != nil {
 		t.Errorf("Out")
@@ -67,15 +58,7 @@ func TestGetRegionSequence(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	req := request.RegionGetRequest{
-		Genome_ID: "KCB09",
-		Contig_ID: "contig000007",
-		Start:     1,
-		End:       20,
-		Is_Prot:   false,
-	}
-
-	seq, err := sdb.GetRegionSequence(req)
+	seq, err := sdb.GetRegionSequence("KCB09", "contig000007", 1, 20)
 
 	if err != nil {
 		t.Errorf("Error shouldn't happen")
@@ -91,19 +74,9 @@ func TestGetmultipleGenes(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	gene_reqs := []*request.GeneGetRequest{
-		{
-			Genome_ID: "KCB09",
-			Contig_ID: "contig000007",
-			Gene_ID:   "KCB09_00064",
-			Is_Prot:   true,
-		},
-		{
-			Genome_ID: "MCC17",
-			Contig_ID: "contig000758",
-			Gene_ID:   "MCC17_10868",
-			Is_Prot:   true,
-		},
+	gene_reqs := []string{
+		"KCB09|contig000007|KCB09_00064",
+		"MCC17|contig000758|MCC17_10868",
 	}
 
 	seq, err := sdb.GetMultipleGene(gene_reqs, true)
@@ -122,21 +95,9 @@ func TestGetMultipleRegion(t *testing.T) {
 		Dir: "/data/db/sequence_db",
 	}
 
-	region_reqs := []*request.RegionGetRequest{
-		&request.RegionGetRequest{
-			Genome_ID: "KCB09",
-			Contig_ID: "contig000007",
-			Start:     1,
-			End:       20,
-			Is_Prot:   false,
-		},
-		&request.RegionGetRequest{
-			Genome_ID: "KCB09",
-			Contig_ID: "contig000017",
-			Start:     200,
-			End:       400,
-			Is_Prot:   false,
-		},
+	region_reqs := []string{
+		"KCB09|contig000007:1-20",
+		"KCB09|contig000017:200-400",
 	}
 
 	seq, err := sdb.GetMultipleRegion(region_reqs)

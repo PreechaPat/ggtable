@@ -1,147 +1,64 @@
 package middle
 
 import (
-	"context"
-	"fmt"
 	"net/http"
-	"runtime/debug"
 	"time"
 
 	"github.com/google/uuid"
-	zap "go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap"
 )
 
-func DonothingMiddleWare(someThing string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
-			// Logic here
-
-			// Call the next handler
-			next.ServeHTTP(w, r)
-		}
-
-		return http.HandlerFunc(fn)
-	}
-}
-
-// responseWriter is a minimal wrapper for http.ResponseWriter that allows the
-// written HTTP status code to be captured for logging.
-type responseWriter struct {
+// 1. A minimal wrapper just to capture the HTTP status code
+type statusRecorder struct {
 	http.ResponseWriter
-	status      int
-	wroteHeader bool
-	body        []byte
+	status int
 }
 
-func wrapResponseWriter(w http.ResponseWriter) *responseWriter {
-	return &responseWriter{ResponseWriter: w}
+// WriteHeader intercepts the status code before sending it to the client
+func (r *statusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
 }
 
-func (rw *responseWriter) Status() int {
-	return rw.status
-}
-
-func (rw *responseWriter) WriteHeader(code int) {
-	if rw.wroteHeader {
-		return
-	}
-	rw.status = code
-	rw.ResponseWriter.WriteHeader(code)
-	rw.wroteHeader = true
-}
-
-func (rw *responseWriter) Write(body []byte) (int, error) {
-	rw.body = body
-	return rw.ResponseWriter.Write(body)
-}
-
-// LoggingMiddleware logs the incoming HTTP request & its duration.
+// 2. Logging Middleware
 func LoggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			wrapped := wrapResponseWriter(w)
 
-			defer func() {
-				if err := recover(); err != nil {
-					wrapped.WriteHeader(http.StatusInternalServerError)
-					logger.Error("Internal Server Error",
-						zap.Any("panic", err),
-						zap.String("stack", string(debug.Stack())),
-					)
-				}
+			// Wrap the writer. We default to 200 OK just in case the handler
+			// doesn't explicitly call WriteHeader.
+			recorder := &statusRecorder{
+				ResponseWriter: w,
+				status:         http.StatusOK,
+			}
 
-				duration := time.Since(start)
-				logger.Debug("Request completed",
-					zap.String("method", r.Method),
-					zap.String("path", r.URL.EscapedPath()),
-					zap.Int("status", wrapped.Status()),
-					zap.Duration("duration", duration),
-					zap.String("client_ip", r.RemoteAddr),
-					zap.String("user_agent", r.UserAgent()),
-					zap.Object("headers", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
-						for k, v := range r.Header {
-							enc.AddString(k, fmt.Sprintf("%v", v))
-						}
-						return nil
-					})),
-				)
+			// Let the request pass down the chain to your actual handler
+			next.ServeHTTP(recorder, r)
 
-				// Log slow requests
-				if duration > 1*time.Second {
-					logger.Warn("Slow request",
-						zap.String("method", r.Method),
-						zap.String("path", r.URL.EscapedPath()),
-						zap.Duration("duration", duration),
-					)
-				}
-			}()
-
-			next.ServeHTTP(wrapped, r)
+			// Log the result AFTER the handler has finished
+			logger.Info("HTTP Request",
+				zap.String("method", r.Method),
+				zap.String("path", r.URL.Path),
+				zap.Int("status", recorder.status),
+				zap.Duration("duration", time.Since(start)),
+			)
 		})
 	}
 }
 
-// RequestIDMiddleware adds a unique request ID to each request
-func RequestIDMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
+// 3. Request ID Middleware
+func RequestIDMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			requestID := generateRequestID()
-			ctx := context.WithValue(r.Context(), "request_id", requestID)
-			r = r.WithContext(ctx)
+			// Generate a simple UUID
+			reqID := "req-" + uuid.New().String()
 
-			w.Header().Set("X-Request-ID", requestID)
+			// Set it in the header so the client/frontend can see it
+			w.Header().Set("X-Request-ID", reqID)
 
-			logger := logger.With(zap.String("request_id", requestID))
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), "logger", logger)))
+			// Pass the request down the chain
+			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-func generateRequestID() string {
-	// Implement your request ID generation logic here
-	// For example, you could use a UUID generator
-	return "req-" + uuid.New().String()
-}
-
-func CreateMiddlewareLogger(level zapcore.Level) *zap.Logger {
-	var err error
-	config := zap.NewDevelopmentConfig()
-
-	config.Level = zap.NewAtomicLevelAt(level)
-
-	enccoderConfig := zap.NewDevelopmentEncoderConfig()
-	zapcore.TimeEncoderOfLayout("Jan _2 15:04:05.000000000")
-	enccoderConfig.StacktraceKey = "" // to hide stacktrace info
-	config.EncoderConfig = enccoderConfig
-
-	zapLog, err := config.Build(zap.AddCallerSkip(1))
-
-	if err != nil {
-		panic(err)
-	}
-
-	return zapLog
-
 }

@@ -12,6 +12,12 @@ import (
 	"strings"
 )
 
+// BlastSearchRequest represents a BLAST request.
+type BlastSearchRequest struct {
+	BlastType string `json:"blast_type"`
+	Sequence  string `json:"sequence"`
+}
+
 // cleanFasta validates and cleans the input FASTA string.
 func cleanFasta(inputFasta string) (string, error) {
 	cleaned := strings.TrimSpace(inputFasta)

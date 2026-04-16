@@ -12,8 +12,6 @@ import (
 	"github.com/yumyai/ggtable/pkg/model"
 	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
-
-	"github.com/yumyai/ggtable/pkg/handler/request"
 )
 
 func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +20,7 @@ func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var req request.BlastSearchRequest
+	var req model.BlastSearchRequest
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -58,7 +56,7 @@ func (dbctx *DBContext) BlastSearchPage(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, "/blast/"+job.ID, http.StatusSeeOther)
 }
 
-func (dbctx *DBContext) runBlastJob(jobID string, req request.BlastSearchRequest) {
+func (dbctx *DBContext) runBlastJob(jobID string, req model.BlastSearchRequest) {
 
 	dbctx.BlastJobs.SetRunning(jobID)
 
@@ -149,7 +147,7 @@ func (dbctx *DBContext) BlastNRedirectPage(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Create region request
-	req := request.RegionGetRequest{
+	req := model.RegionGetRequest{
 		Genome_ID: genome_id,
 		Contig_ID: contig_id,
 		Start:     start_loc,
@@ -187,7 +185,7 @@ func (dbctx *DBContext) BlastPRedirectPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	req := request.GeneGetRequest{
+	req := model.GeneGetRequest{
 		Genome_ID: genome_id,
 		Contig_ID: contig_id,
 		Gene_ID:   gene_id,

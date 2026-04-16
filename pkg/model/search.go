@@ -1,5 +1,3 @@
-// TODO: Check if these methods hold connection far too long than it should have.
-
 package model
 
 import (
@@ -10,16 +8,72 @@ import (
 	"time"
 
 	"github.com/yumyai/ggtable/logger"
-	"github.com/yumyai/ggtable/pkg/handler/request"
 	"go.uber.org/zap"
 )
+
+type ClusterField int
+
+const (
+	ClusterFieldFunction ClusterField = iota
+	ClusterFieldCOGID
+	ClusterFieldClusterID
+	ClusterFieldGeneID
+	ClusterFieldTODO
+)
+
+func (s ClusterField) String() string {
+	switch s {
+	case ClusterFieldFunction:
+		return "function"
+	case ClusterFieldCOGID:
+		return "cog_id"
+	case ClusterFieldClusterID:
+		return "cluster_id"
+	case ClusterFieldGeneID:
+		return "gene_id"
+	case ClusterFieldTODO:
+		return "TODO"
+	default:
+		return "TODO"
+	}
+}
+
+func ParseClusterField(field string) ClusterField {
+	switch field {
+	case "function":
+		return ClusterFieldFunction
+	case "cog_id":
+		return ClusterFieldCOGID
+	case "cluster_id":
+		return ClusterFieldClusterID
+	case "gene_id":
+		return ClusterFieldGeneID
+	case "TODO":
+		return ClusterFieldTODO
+	default:
+		return ClusterFieldTODO // default to function
+	}
+}
+
+// Structure for querying
+type ClusterSearchRequest struct {
+	Search_For              string       `json:"search_for"`                 // Term or keyword to search
+	Search_Field            ClusterField `json:"search_field"`               // Field to search within (e.g., gene_symbol, description)
+	Order_By                ClusterField `json:"order_by"`                   // Field to order results by (e.g., cluster_id, size)
+	Order_Dir               string       `json:"order_dir"`                  // Sort direction: asc or desc
+	Page                    int          `json:"page"`                       // Page number for pagination (starting at 1)
+	Page_Size               int          `json:"page_size"`                  // Number of results per page
+	Genome_IDs              []string     `json:"genome_ids"`                 // Genome IDs to limit the search
+	RequireGenesFromGenomes []string     `json:"require_genes_from_genomes"` // Filter: only include clusters with these genes from the specified genomes
+	Color_By                string       `json:"color_by"`                   // Cell coloring mode: "gene_copy_number" or "max_gene_completeness"
+}
 
 /********************
  * PUBLIC FUNCTIONS
  ********************/
 
 // SearchGeneCluster selects the main strategy based on Search_Field.
-func SearchGeneCluster(db *sql.DB, req request.ClusterSearchRequest) ([]*Cluster, error) {
+func SearchGeneCluster(db *sql.DB, req ClusterSearchRequest) ([]*Cluster, error) {
 	// Keep total timeout similar to originals; bump slightly for safety
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
@@ -47,7 +101,7 @@ func SearchGeneCluster(db *sql.DB, req request.ClusterSearchRequest) ([]*Cluster
 }
 
 // GetMainPage returns unfiltered clusters.
-func GetMainPage(db *sql.DB, req request.ClusterSearchRequest) ([]*Cluster, error) {
+func GetMainPage(db *sql.DB, req ClusterSearchRequest) ([]*Cluster, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -73,7 +127,7 @@ func GetMainPage(db *sql.DB, req request.ClusterSearchRequest) ([]*Cluster, erro
 	return clusters, nil
 }
 
-func CountSearchRow(db *sql.DB, req request.ClusterSearchRequest) (int, error) {
+func CountSearchRow(db *sql.DB, req ClusterSearchRequest) (int, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -82,7 +136,7 @@ func CountSearchRow(db *sql.DB, req request.ClusterSearchRequest) (int, error) {
 
 	err := withTxRollback(ctx, db, &sql.TxOptions{ReadOnly: true}, func(tx *sql.Tx) error {
 
-		if req.Search_Field == request.ClusterFieldGeneID {
+		if req.Search_Field == ClusterFieldGeneID {
 			// Gene-name path
 			if err := buildTempGenomeIDs(tx, req.Genome_IDs); err != nil {
 				return err
@@ -144,7 +198,7 @@ func CountAllRow(db *sql.DB) (int, error) {
 
 // performClusterQuery orchestrates the search/retrieval process within a transaction.
 // It builds a temporary table of unique clusters and then hydrates them with gene and region data.
-func performClusterQuery(tx *sql.Tx, req request.ClusterSearchRequest, isSearch bool, clusterMap map[string]*Cluster, orderedIDs *[]string) error {
+func performClusterQuery(tx *sql.Tx, req ClusterSearchRequest, isSearch bool, clusterMap map[string]*Cluster, orderedIDs *[]string) error {
 	if err := scaffoldUniqueClusters(tx, req, isSearch); err != nil {
 		return fmt.Errorf("scaffolding unique clusters: %w", err)
 	}
@@ -167,12 +221,12 @@ func performClusterQuery(tx *sql.Tx, req request.ClusterSearchRequest, isSearch 
 
 // scaffoldUniqueClusters creates and populates the unique_clusters temporary table
 // based on whether it's a search or a main page view.
-func scaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest, isSearch bool) error {
+func scaffoldUniqueClusters(tx *sql.Tx, req ClusterSearchRequest, isSearch bool) error {
 	if !isSearch {
 		return mainPageScaffoldUniqueClusters(tx, req)
 	}
 
-	if req.Search_Field == request.ClusterFieldGeneID {
+	if req.Search_Field == ClusterFieldGeneID {
 		return geneNameScaffoldUniqueClusters(tx, req)
 	}
 	return propScaffoldUniqueClusters(tx, req)
@@ -183,7 +237,7 @@ func scaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest, isSear
  **************************************/
 
 // mainPageScaffoldUniqueClusters creates unique_clusters for the main page view (no filtering).
-func mainPageScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest) error {
+func mainPageScaffoldUniqueClusters(tx *sql.Tx, req ClusterSearchRequest) error {
 	if err := buildTempGenomeIDs(tx, req.Genome_IDs); err != nil {
 		return err
 	}
@@ -205,7 +259,7 @@ func mainPageScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest
 }
 
 // geneNameScaffoldUniqueClusters creates unique_clusters based on a gene ID search.
-func geneNameScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest) error {
+func geneNameScaffoldUniqueClusters(tx *sql.Tx, req ClusterSearchRequest) error {
 	// temp_genome_ids first (TEXT as in original GeneName scaffold)
 	if err := buildTempGenomeIDs(tx, req.Genome_IDs); err != nil {
 		return err
@@ -251,7 +305,7 @@ func geneNameScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest
 }
 
 // propScaffoldUniqueClusters creates unique_clusters based on a property search (e.g., function, COG ID).
-func propScaffoldUniqueClusters(tx *sql.Tx, req request.ClusterSearchRequest) error {
+func propScaffoldUniqueClusters(tx *sql.Tx, req ClusterSearchRequest) error {
 
 	if err := buildTempGenomeIDs(tx, req.Genome_IDs); err != nil {
 		return err
@@ -310,13 +364,13 @@ func buildTempGenomeIDs(tx *sql.Tx, ids []string) error {
 }
 
 // whereFilterExpr returns the SQL WHERE clause for property searches.
-func whereFilterExpr(field request.ClusterField) (string, error) {
+func whereFilterExpr(field ClusterField) (string, error) {
 	switch field {
-	case request.ClusterFieldFunction:
+	case ClusterFieldFunction:
 		return "gc.function_description LIKE ?", nil
-	case request.ClusterFieldCOGID:
+	case ClusterFieldCOGID:
 		return "gc.cog_id LIKE ?", nil
-	case request.ClusterFieldClusterID:
+	case ClusterFieldClusterID:
 		return "gc.cluster_id LIKE ?", nil
 	default:
 		logger.Error("error in query section")
@@ -325,13 +379,13 @@ func whereFilterExpr(field request.ClusterField) (string, error) {
 }
 
 // orderByExpr returns the SQL ORDER BY clause.
-func orderByExpr(field request.ClusterField) (string, error) {
+func orderByExpr(field ClusterField) (string, error) {
 	switch field {
-	case request.ClusterFieldFunction:
+	case ClusterFieldFunction:
 		return "gc.function_description", nil
-	case request.ClusterFieldCOGID:
+	case ClusterFieldCOGID:
 		return "gc.cog_id", nil
-	case request.ClusterFieldClusterID:
+	case ClusterFieldClusterID:
 		return "gc.cluster_id", nil
 	default:
 		logger.Error("error in order_by section")

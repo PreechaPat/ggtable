@@ -6,7 +6,6 @@ import (
 	"io"
 	"math"
 
-	"github.com/yumyai/ggtable/pkg/handler/request"
 	"github.com/yumyai/ggtable/pkg/model"
 )
 
@@ -457,7 +456,7 @@ type clusterHeatmapPageData struct {
 	ColorBy           string
 }
 
-func buildClusterHeatmapPageData(rows []*model.Cluster, searchRequest request.ClusterSearchRequest, totalPage int) clusterHeatmapPageData {
+func buildClusterHeatmapPageData(rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) clusterHeatmapPageData {
 	genomeIDAll := model.ALL_GENOME_ID
 	genomeMapAll := model.MAP_HEADER
 	header := searchRequest.Genome_IDs
@@ -509,7 +508,7 @@ func buildClusterHeatmapPageData(rows []*model.Cluster, searchRequest request.Cl
 }
 
 // RenderClusterHeatmapPage renders the search heatmap table view for one or more clusters.
-func RenderClusterHeatmapPage(w io.Writer, rows []*model.Cluster, searchRequest request.ClusterSearchRequest, totalPage int) error {
+func RenderClusterHeatmapPage(w io.Writer, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) error {
 	data := buildClusterHeatmapPageData(rows, searchRequest, totalPage)
 	return searchPageTemplate.Execute(w, data)
 }
