@@ -1,3 +1,5 @@
 data
 bin
 .vscode
+.dockerignore
+test_data/

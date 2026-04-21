@@ -1,1 +1,1 @@
-docker buildx build -t preechapat/ggtable:3.0.4 .
+docker build . -t ggtable:sha-"$(git rev-parse --short=8 HEAD)"
