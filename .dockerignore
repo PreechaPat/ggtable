@@ -2,4 +2,5 @@ data
 bin
 .vscode
 .dockerignore
+.git
 test_data/
