@@ -73,104 +73,97 @@ func BLASTN(NCDB, inputFasta string) (string, error) {
 	return runBLASTCommand("blastn", NCDB, inputFasta)
 }
 
-// TODO: Replace this with more robust method
-// HACK: This uses regex and parse by line.
-// Parse BLAST result to replace sequence id (36SW|contig000167|P36SW_07281) -> (Pythium 123|contig000167|P36SW_07281)
+// Define the states for our parser
+type ParseState int
+
+const (
+	StateHeader ParseState = iota
+	StateTOC
+	StateAlignments
+	StateFooter
+)
+
 func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 	var output bytes.Buffer
-
-	// Genome id -> Genome name lookup
-	genomeid_lookup := MAP_HEADER
 	reader := bufio.NewReader(htmlContent)
 
-	// Regex to capture genome|contig|gene front and back
-	front_sequence_regex := regexp.MustCompile(`^(\S+)\|(\S+)\|(\S+)`)  // 36SW|contig000167|P36SW_07281           <a href="http://localhost:8080/blast#BL_ORD_ID:1277053">69.7</a>    2e-11
-	sequence_name_regex := regexp.MustCompile(`\s(\S+)\|(\S+)\|(\S+)$`) // &gt;<a name="BL_ORD_ID:951843"></a> P36SW|contig000167|P36SW_07281
-	space_detection := regexp.MustCompile(`\s{2,}`)
+	// HACK: Assuming MAP_HEADER is available in your scope
+	genomeid_lookup := MAP_HEADER
+
+	// Regexes are now more specific and only applied in their respective states
+	tocRegex := regexp.MustCompile(`^(\S+)\|(\S+)\|(\S+)`)
+	alignHeaderRegex := regexp.MustCompile(`^(>.*?<a.*?></a>\s)(\S+)\|(\S+)\|(\S+)$`)
+	spaceDetection := regexp.MustCompile(`\s{2,}`)
+
+	state := StateHeader
 
 	for {
 		line, err := reader.ReadString('\n')
-		line = strings.TrimSuffix(line, "\n")
-
 		if err != nil && err != io.EOF {
 			return nil, err
 		}
 
-		// Skip the problematic part. (BLASTN has several line with |||| which mess with regex)
-		if strings.HasPrefix(line, "           ") {
-			output.WriteString(line)
-			output.WriteString("\n")
-			continue
-		}
+		// Clean the line for easier processing, but we will write it with a newline later
+		cleanLine := strings.TrimSuffix(line, "\n")
 
-		// doing match in both front and back kind
-		table_matches := front_sequence_regex.FindStringSubmatch(line)
-		header_matches := sequence_name_regex.FindStringSubmatch(line)
-
-		// It is a table, I need a padding
-		if len(table_matches) == 4 {
-			genome_id := table_matches[1]
-			contig := table_matches[2]
-			gene := table_matches[3]
-
-			genome_name, ok := genomeid_lookup[genome_id]
-			if !ok {
-				return &output, err
-			}
-			replacement := fmt.Sprintf("%s-%s|%s|%s", genome_name, genome_id, contig, gene)
-
-			parts := space_detection.Split(line, 3)
-			alink := parts[1]
-			score := parts[2]
-
-			newline := fmt.Sprintf("%-90s %-10s %-5s", replacement, alink, score)
-
-			output.WriteString(newline)
-
-		} else if len(header_matches) == 4 {
-			// this is a header >.... no padding need
-			genome_id := header_matches[1]
-			contig := header_matches[2]
-			gene := header_matches[3]
-
-			genome_name, ok := genomeid_lookup[genome_id]
-			if !ok {
-				return &output, err
+		switch state {
+		case StateHeader:
+			if strings.HasSuffix(cleanLine, "Score     E") {
+				// Format the column headers
+				newline := fmt.Sprintf("%-90s %-10s %-5s", " ", "Score", "E")
+				output.WriteString(newline + "\n")
+			} else if strings.HasPrefix(cleanLine, "Sequences producing significant alignments:") {
+				// Transition to TOC state
+				state = StateTOC
+				newline := fmt.Sprintf("%-90s %-10s %-5s", "Sequences producing significant alignments:", "(Bits)", "Value")
+				output.WriteString(newline + "\n")
+			} else {
+				output.WriteString(cleanLine + "\n")
 			}
 
-			replacement := fmt.Sprintf("%s-%s|%s|%s", genome_name, genome_id, contig, gene)
-			link := fmt.Sprintf("/cluster/heatmap/%s/%s/%s",
-				url.PathEscape(genome_id),
-				url.PathEscape(contig),
-				url.PathEscape(gene),
-			)
-			link_html := fmt.Sprintf("<a href=\"%s\">View in gene table</a>", link)
+		case StateTOC:
+			// If we hit a line starting with ">", we've entered the Alignments section
+			if strings.HasPrefix(strings.TrimSpace(cleanLine), ">") {
+				state = StateAlignments
+				// Re-evaluate this line in the Alignments state
+				processAlignmentLine(&output, cleanLine, alignHeaderRegex, genomeid_lookup)
+			} else {
+				// Process TOC rows
+				matches := tocRegex.FindStringSubmatch(cleanLine)
+				if len(matches) == 4 {
+					genomeID, contig, gene := matches[1], matches[2], matches[3]
 
-			transformedLine := sequence_name_regex.ReplaceAllString(line, replacement)
+					if genomeName, ok := genomeid_lookup[genomeID]; ok {
+						replacement := fmt.Sprintf("%s-%s|%s|%s", genomeName, genomeID, contig, gene)
+						parts := spaceDetection.Split(cleanLine, 3)
 
-			output.WriteString(transformedLine)
-			output.WriteString(" ")
-			output.WriteString(link_html)
-		} else if strings.HasPrefix(line, "Sequences producing significant alignments:") {
-			// Sequences producing significant alignments:                          (Bits)  Value
-			s1 := "Sequences producing significant alignments:"
-			s2 := "(Bits)"
-			s3 := "Value"
-			newline := fmt.Sprintf("%-90s %-10s %-5s", s1, s2, s3)
-			output.WriteString(newline)
+						if len(parts) >= 3 {
+							newline := fmt.Sprintf("%-90s %-10s %-5s", replacement, parts[1], parts[2])
+							output.WriteString(newline + "\n")
+							continue
+						}
+					}
+				}
+				// Default line handling if not a matching TOC row
+				output.WriteString(cleanLine + "\n")
+			}
 
-		} else if strings.HasSuffix(line, "Score     E") {
-			// Score     E
-			s1 := " "
-			s2 := "Score"
-			s3 := "E"
-			newline := fmt.Sprintf("%-90s %-10s %-5s", s1, s2, s3)
-			output.WriteString(newline)
+		case StateAlignments:
+			// If we hit the footer stats, transition to Footer
+			if strings.HasPrefix(cleanLine, "  Database:") || strings.HasPrefix(strings.TrimSpace(cleanLine), "Lambda") {
+				state = StateFooter
+				output.WriteString(cleanLine + "\n")
+			} else if strings.HasPrefix(strings.TrimSpace(cleanLine), ">") {
+				processAlignmentLine(&output, cleanLine, alignHeaderRegex, genomeid_lookup)
+			} else {
+				// Regular alignment sequences (Query/Sbjct blocks)
+				output.WriteString(cleanLine + "\n")
+			}
 
-		} else {
-			output.WriteString(line)
+		case StateFooter:
+			// Dump the rest of the file without regex evaluation
+			output.WriteString(cleanLine + "\n")
 		}
-		output.WriteString("\n")
 
 		if err == io.EOF {
 			break
@@ -178,5 +171,31 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 	}
 
 	return &output, nil
+}
 
+// processAlignmentLine handles the replacement and link injection for the detail blocks
+func processAlignmentLine(output *bytes.Buffer, line string, regex *regexp.Regexp, lookup map[string]string) {
+	matches := regex.FindStringSubmatch(line)
+	if len(matches) == 5 {
+		prefix := matches[1] // Captures the `><a name=BL_ORD_ID:1165942></a> ` part
+		genomeID := matches[2]
+		contig := matches[3]
+		gene := matches[4]
+
+		if genomeName, ok := lookup[genomeID]; ok {
+			replacement := fmt.Sprintf("%s-%s|%s|%s", genomeName, genomeID, contig, gene)
+			link := fmt.Sprintf("/cluster/heatmap/%s/%s/%s",
+				url.PathEscape(genomeID),
+				url.PathEscape(contig),
+				url.PathEscape(gene),
+			)
+			linkHTML := fmt.Sprintf("<a href=\"%s\">View in gene table</a>", link)
+
+			// Reconstruct line: Prefix + Replaced String + Space + Link
+			output.WriteString(fmt.Sprintf("%s%s %s\n", prefix, replacement, linkHTML))
+			return
+		}
+	}
+	// Fallback if lookup fails or regex doesn't match perfectly
+	output.WriteString(line + "\n")
 }

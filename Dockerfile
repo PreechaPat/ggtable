@@ -1,9 +1,5 @@
-#
-#
-#
-
 # Builder image
-FROM golang:1.23-alpine3.20 AS builder
+FROM golang:1.25.9-alpine3.23 AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -13,7 +9,7 @@ COPY static ./static
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ggtable .
 
 # Runtime image
-FROM debian:bookworm-slim AS prod
+FROM debian:trixie-slim AS prod
 
 ARG VERSION
 LABEL org.opencontainers.image.version=${VERSION}
