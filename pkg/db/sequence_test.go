@@ -40,7 +40,9 @@ func mockInput(t testing.T) {
 
 func TestGetGeneSequence(t *testing.T) {
 	sdb := SequenceDB{
-		Dir: "/data/db/sequence_db",
+		ProtDB:   "/data/db/blastdb/genetable_genes_prot",
+		NuclDB:   "/data/db/blastdb/genetable_genes_nucl",
+		GenomeDB: "/data/db/blastdb/genetable_genomes_nucl",
 	}
 
 	seq, err := sdb.GetGeneSequence("KCB09", "contig000007", "KCB09_00064", true)
@@ -55,7 +57,9 @@ func TestGetGeneSequence(t *testing.T) {
 func TestGetRegionSequence(t *testing.T) {
 
 	sdb := SequenceDB{
-		Dir: "/data/db/sequence_db",
+		ProtDB:   "/data/db/blastdb/genetable_genes_prot",
+		NuclDB:   "/data/db/blastdb/genetable_genes_nucl",
+		GenomeDB: "/data/db/blastdb/genetable_genomes_nucl",
 	}
 
 	seq, err := sdb.GetRegionSequence("KCB09", "contig000007", 1, 20)
@@ -71,7 +75,9 @@ func TestGetRegionSequence(t *testing.T) {
 func TestGetmultipleGenes(t *testing.T) {
 
 	sdb := SequenceDB{
-		Dir: "/data/db/sequence_db",
+		ProtDB:   "/data/db/blastdb/genetable_genes_prot",
+		NuclDB:   "/data/db/blastdb/genetable_genes_nucl",
+		GenomeDB: "/data/db/blastdb/genetable_genomes_nucl",
 	}
 
 	gene_reqs := []string{
@@ -92,7 +98,9 @@ func TestGetmultipleGenes(t *testing.T) {
 func TestGetMultipleRegion(t *testing.T) {
 
 	sdb := SequenceDB{
-		Dir: "/data/db/sequence_db",
+		ProtDB:   "/data/db/blastdb/genetable_genes_prot",
+		NuclDB:   "/data/db/blastdb/genetable_genes_nucl",
+		GenomeDB: "/data/db/blastdb/genetable_genomes_nucl",
 	}
 
 	region_reqs := []string{

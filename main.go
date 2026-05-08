@@ -100,7 +100,7 @@ func run(cfg AppConfig) error {
 	sqlitePath := path.Join(cfg.DataDir, "db/gene_table.db")
 	protDB := path.Join(cfg.DataDir, "db/blastdb/genetable_genes_prot")
 	nuclDB := path.Join(cfg.DataDir, "db/blastdb/genetable_genes_nucl")
-	seqDB := path.Join(cfg.DataDir, "db/sequence_db")
+	genomeDB := path.Join(cfg.DataDir, "db/blastdb/genetable_genomes")
 
 	// DB connect
 	// FIX: This create a new sqlite3 database if it does not exists.
@@ -118,7 +118,11 @@ func run(cfg AppConfig) error {
 	dbConn.SetMaxIdleConns(5)
 	dbConn.SetConnMaxLifetime(3 * time.Minute)
 
-	gcdb := db.NewGeneClusterDB(dbConn, &db.SequenceDB{Dir: seqDB})
+	gcdb := db.NewGeneClusterDB(dbConn, &db.SequenceDB{
+		ProtDB:   protDB,
+		NuclDB:   nuclDB,
+		GenomeDB: genomeDB,
+	})
 
 	appConfig := &handler.AppContext{
 		GCDB:         gcdb,

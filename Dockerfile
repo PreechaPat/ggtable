@@ -18,7 +18,7 @@ LABEL maintainer="Preecha Patumcharoenpol"
 # Prep the environment
 ENV GGTABLE_DATA=/data
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-     && apt-get -y install --no-install-recommends --no-install-suggests curl ncbi-blast+ samtools \
+     && apt-get -y install --no-install-recommends --no-install-suggests curl ncbi-blast+ \
      && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /tmp/library-scripts /tmp/downloaded_packages 
 
 WORKDIR /app

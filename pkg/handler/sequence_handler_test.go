@@ -15,11 +15,11 @@ import (
 	"github.com/yumyai/ggtable/pkg/model"
 )
 
-// helper to create a fake 'samtools' executable that prints a fixed FASTA
-func createFakeSamtools(t *testing.T, dir string, fasta string) string {
+// helper to create a fake 'blastdbcmd' executable that prints a fixed FASTA
+func createFakeBlastdbcmd(t *testing.T, dir string, fasta string) string {
 	t.Helper()
 
-	name := "samtools"
+	name := "blastdbcmd"
 	if runtime.GOOS == "windows" {
 		name += ".bat"
 	}
@@ -43,7 +43,7 @@ func createFakeSamtools(t *testing.T, dir string, fasta string) string {
 	}
 
 	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
-		t.Fatalf("write fake samtools: %v", err)
+		t.Fatalf("write fake blastdbcmd: %v", err)
 	}
 	// Ensure executable bit on non-windows
 	_ = os.Chmod(path, fs.FileMode(0o755))
@@ -64,11 +64,11 @@ func prependPath(t *testing.T, dir string) (restore func()) {
 	return func() { _ = os.Setenv("PATH", old) }
 }
 
-func TestGetGeneSequenceHandler_MockSamtools(t *testing.T) {
-	// Arrange fake samtools
+func TestGetGeneSequenceHandler_MockBlastdbcmd(t *testing.T) {
+	// Arrange fake blastdbcmd
 	tmp := t.TempDir()
-	fastaOut := ">KCB09|ctg|KCB09_00123:1-10\nACGT\n"
-	createFakeSamtools(t, tmp, fastaOut)
+	fastaOut := ">KCB09//ctg//KCB09_00123\nACGT\n"
+	createFakeBlastdbcmd(t, tmp, fastaOut)
 	restore := prependPath(t, tmp)
 	t.Cleanup(restore)
 
@@ -78,7 +78,11 @@ func TestGetGeneSequenceHandler_MockSamtools(t *testing.T) {
 	// Prepare handler context with a dummy SequenceDB
 	appConfig := &AppContext{
 		GCDB: &db.GeneClusterDB{
-			SeqDB: &db.SequenceDB{Dir: tmp},
+			SeqDB: &db.SequenceDB{
+				ProtDB:   filepath.Join(tmp, "prot"),
+				NuclDB:   filepath.Join(tmp, "nucl"),
+				GenomeDB: filepath.Join(tmp, "genome"),
+			},
 		},
 	}
 
@@ -102,7 +106,7 @@ func TestGetGeneSequenceHandler_MockSamtools(t *testing.T) {
 
 	got := rr.Body.String()
 	// Header should be rewritten to include the genome name prefix
-	wantHeader := ">TestGenome-KCB09|ctg|KCB09_00123"
+	wantHeader := ">TestGenome-KCB09//ctg//KCB09_00123"
 	if !strings.HasPrefix(got, wantHeader) {
 		t.Fatalf("unexpected header. got %q, want prefix %q", got, wantHeader)
 	}

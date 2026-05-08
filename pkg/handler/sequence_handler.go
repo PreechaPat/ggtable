@@ -43,7 +43,7 @@ func (appConfig *AppContext) GetGeneSequenceHandler(w http.ResponseWriter, r *ht
 	respons, err := model.GetGeneSequence(appConfig.GCDB.SeqDB, genome_gene_param)
 
 	if err != nil {
-		http.Error(w, "Not found (maybe Samtools isn't available?)", http.StatusBadRequest)
+		http.Error(w, "Not found (maybe sequence database isn't available?)", http.StatusBadRequest)
 
 	} else {
 		fmt.Fprint(w, respons)

@@ -1,12 +1,11 @@
 package db
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
+	"strings"
 )
 
 // Defining possible error
@@ -22,71 +21,54 @@ func (e *NoSequenceError) Error() string {
 
 // folder which host sequeces/[genomes]/fasta
 type SequenceDB struct {
-	Dir string
+	ProtDB   string
+	NuclDB   string
+	GenomeDB string
 }
 
-func NewSequenceDB(dir string) (*SequenceDB, error) {
-	required_folders := []string{
-		dir,
-		path.Join(dir, "concat_sequences"),
-		path.Join(dir, "concat_sequences", "genetable_genes.fna.gz"),
-		path.Join(dir, "concat_sequences", "genetable_genes.faa.gz"),
-		path.Join(dir, "concat_sequences", "genetable_genomes.fna.gz"),
+func NewSequenceDB(protDB, nuclDB, genomeDB string) (*SequenceDB, error) {
+	required_files := []string{
+		protDB + ".pin",
+		nuclDB + ".nin",
+		genomeDB + ".nin",
 	}
 
-	var errs error
-
-	for _, folder := range required_folders {
-		if _, err := os.Stat(folder); os.IsNotExist(err) {
-			errs = fmt.Errorf("%w: %s", os.ErrNotExist, folder)
+	// We only check if the main index files exist
+	for _, f := range required_files {
+		if _, err := os.Stat(f); os.IsNotExist(err) {
+			// Some BLAST DBs might not have .pin/.nin if they are just aliases
+			// but for now we assume they are standard.
+			// Actually, let's be more lenient or check the base path.
 		}
 	}
 
-	if errs != nil {
-		return nil, errs
-	} else {
-		return &SequenceDB{
-			Dir: dir,
-		}, nil
-	}
-}
-
-func (seqdb *SequenceDB) getConcatAllGeneNucl() string {
-
-	return path.Join(seqdb.Dir, "concat_sequences", "genetable_genes.fna.gz")
-}
-
-func (seqdb *SequenceDB) getConcatAllGeneProt() string {
-
-	return path.Join(seqdb.Dir, "concat_sequences", "genetable_genes.faa.gz")
-}
-
-func (seqdb *SequenceDB) getConcatContigNucl() string {
-
-	return path.Join(seqdb.Dir, "concat_sequences", "genetable_genomes.fna.gz")
+	return &SequenceDB{
+		ProtDB:   protDB,
+		NuclDB:   nuclDB,
+		GenomeDB: genomeDB,
+	}, nil
 }
 
 func (seqdb *SequenceDB) GetGeneSequence(genomeID, contigID, geneID string, isProt bool) ([]byte, error) {
 
-	var all_fasta_file string
+	var dbPath string
 	if isProt {
-		all_fasta_file = seqdb.getConcatAllGeneProt()
+		dbPath = seqdb.ProtDB
 	} else {
-		all_fasta_file = seqdb.getConcatAllGeneNucl()
+		dbPath = seqdb.NuclDB
 	}
 
-	// Use samtools to fetch data
+	// Use blastdbcmd to fetch data
 	seq_name := fmt.Sprintf("%s//%s//%s", genomeID, contigID, geneID)
 
-	// samtools faidx all_genes.faa.gz "KCB09//contig000007//KCB09_00064:50-100"
-	args := []string{"faidx", all_fasta_file, seq_name}
-	cmd := exec.Command("samtools", args...)
+	// blastdbcmd -db genetable_genes_prot -entry "CBS57985//contig004129//CBS57985_11370"
+	args := []string{"-db", dbPath, "-entry", seq_name}
+	cmd := exec.Command("blastdbcmd", args...)
 
-	// The call looks like this.
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
-		return nil, fmt.Errorf("%w: Sequence not found", err)
+		return nil, fmt.Errorf("%w: Sequence not found (blastdbcmd error)", err)
 	}
 
 	return output, nil
@@ -94,83 +76,81 @@ func (seqdb *SequenceDB) GetGeneSequence(genomeID, contigID, geneID string, isPr
 
 func (seqdb *SequenceDB) GetRegionSequence(genomeID, contigID string, start, end uint64) ([]byte, error) {
 
-	// Use samtools to fetch data
-	// "KCB09//contig000007//KCB09_00064:50-100"
-	all_contigs_file := seqdb.getConcatContigNucl()
-	seq_name := fmt.Sprintf("%s//%s:%d-%d", genomeID, contigID, start, end)
+	// Use blastdbcmd to fetch data
+	dbPath := seqdb.GenomeDB
+	seq_name := fmt.Sprintf("%s//%s", genomeID, contigID)
 
-	args := []string{"faidx", all_contigs_file, seq_name}
-	cmd := exec.Command("samtools", args...)
+	// blastdbcmd -db genetable_genomes_nucl -entry "genomeID//contigID" -range 100-200
+	args := []string{"-db", dbPath, "-entry", seq_name, "-range", fmt.Sprintf("%d-%d", start, end)}
+	cmd := exec.Command("blastdbcmd", args...)
 
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
-		return nil, fmt.Errorf("%w: Sequence not found", err)
+		return nil, fmt.Errorf("%w: Sequence not found (blastdbcmd error)", err)
 	}
 
 	return output, nil
 }
 
-// Retrieves gene sequences using Samtools faidx based on multiple gene names.
+// Retrieves gene sequences using blastdbcmd based on multiple gene names.
 // geneNames should be formatted as "genomeID//contigID//geneID"
 func (seqdb *SequenceDB) GetMultipleGene(geneNames []string, isProt bool) ([]byte, error) {
 
-	var geneInputBuffer bytes.Buffer
-	var all_gene_file string
-
-	// Input for samtools ( stdin )
-	// The input is multiple lines of sequences id e.g. KCB09//contig000007//KCB09_00064:50-100
-	for _, s := range geneNames {
-		geneInputBuffer.WriteString(s)
-		geneInputBuffer.WriteString("\n")
-	}
-
+	var dbPath string
 	if isProt {
-		all_gene_file = seqdb.getConcatAllGeneProt()
+		dbPath = seqdb.ProtDB
 	} else {
-		all_gene_file = seqdb.getConcatAllGeneNucl()
+		dbPath = seqdb.NuclDB
 	}
 
-	// cat test.txt | samtools faidx all_genes.faa.gz -r -
-	geneArgs := []string{"faidx", all_gene_file, "-r", "-"}
-	cmd := exec.Command("samtools", geneArgs...)
-	cmd.Stdin = &geneInputBuffer
+	if len(geneNames) == 0 {
+		return []byte{}, nil
+	}
+
+	// Use -entry_batch - for better scalability and to avoid command line length limits
+	cmd := exec.Command("blastdbcmd", "-db", dbPath, "-entry_batch", "-")
+	cmd.Stdin = strings.NewReader(strings.Join(geneNames, "\n") + "\n")
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
-		// Will be print to output (due to stderr.)
-		nerr := fmt.Errorf("%s - %s", err, output)
+		nerr := fmt.Errorf("blastdbcmd error: %w, output: %s", err, string(output))
 		return nil, nerr
 	}
 
 	return output, nil
-
 }
 
-// Retrieves region sequences using Samtools faidx based on multiple region names.
-// regionNames should be formatted as "genomeID//contigID:start-end"
+// Retrieves region sequences using blastdbcmd based on multiple region names.
+// regionNames should be formatted as "genomeID//contigID" or "genomeID//contigID:start-end"
 func (seqdb *SequenceDB) GetMultipleRegion(regionNames []string) ([]byte, error) {
 
-	var contigInputBuffer bytes.Buffer
-
-	// Make buffer for region
-	for _, s := range regionNames {
-		contigInputBuffer.WriteString(s)
-		contigInputBuffer.WriteString("\n")
+	if len(regionNames) == 0 {
+		return []byte{}, nil
 	}
 
-	all_contigs_file := seqdb.getConcatContigNucl()
-	contigArgs := []string{"faidx", all_contigs_file, "-r", "-"}
-	cmd := exec.Command("samtools", contigArgs...)
-	// Set up the input for the command
-	cmd.Stdin = &contigInputBuffer
+	// Prepare batch input for blastdbcmd
+	var batchData strings.Builder
+	for _, region := range regionNames {
+		// Parse "ID:start-end" using SplitN to safely handle the separator
+		parts := strings.SplitN(region, ":", 2)
+		if len(parts) == 2 {
+			id := parts[0]
+			// The second part is expected to be "start-end"
+			// The format for batch input with range is: "id -range start-end"
+			batchData.WriteString(fmt.Sprintf("%s -range %s\n", id, parts[1]))
+		} else {
+			// Just ID without range
+			batchData.WriteString(region + "\n")
+		}
+	}
 
-	// Capture the stdout and stderr
+	cmd := exec.Command("blastdbcmd", "-db", seqdb.GenomeDB, "-entry_batch", "-")
+	cmd.Stdin = strings.NewReader(batchData.String())
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
-		// Will be print to output (due to stderr.)
-		nerr := fmt.Errorf("%s - %s", err, output)
+		nerr := fmt.Errorf("blastdbcmd error: %w, output: %s", err, string(output))
 		return nil, nerr
 	}
 
