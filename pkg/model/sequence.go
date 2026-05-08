@@ -95,7 +95,7 @@ func GetMultipleGenes(seqdb *ggdb.SequenceDB, req []*GeneGetRequest, is_prot boo
 
 	geneNames := make([]string, 0, len(req))
 	for _, r := range req {
-		geneNames = append(geneNames, fmt.Sprintf("%s|%s|%s", r.Genome_ID, r.Contig_ID, r.Gene_ID))
+		geneNames = append(geneNames, fmt.Sprintf("%s//%s//%s", r.Genome_ID, r.Contig_ID, r.Gene_ID))
 	}
 
 	raw_output, err := seqdb.GetMultipleGene(geneNames, is_prot)
@@ -113,7 +113,7 @@ func GetMultipleRegions(seqdb *ggdb.SequenceDB, req []*RegionGetRequest) (string
 
 	regionNames := make([]string, 0, len(req))
 	for _, r := range req {
-		regionNames = append(regionNames, fmt.Sprintf("%s|%s:%d-%d", r.Genome_ID, r.Contig_ID, r.Start, r.End))
+		regionNames = append(regionNames, fmt.Sprintf("%s//%s:%d-%d", r.Genome_ID, r.Contig_ID, r.Start, r.End))
 	}
 
 	raw_output, err := seqdb.GetMultipleRegion(regionNames)
@@ -172,7 +172,7 @@ func supplyFastaHeader(input []byte, genomeMap map[string]string) *bytes.Buffer 
 
 		if strings.HasPrefix(lineStr, ">") {
 			// Process header line
-			fields := strings.SplitN(lineStr, "|", 2) // Split the line into genome ID and the rest
+			fields := strings.SplitN(lineStr, "//", 2) // Split the line into genome ID and the rest
 			if len(fields) > 0 {
 				genomeID := strings.TrimPrefix(fields[0], ">")
 				if genomeName, ok := genomeMap[genomeID]; ok {
@@ -180,7 +180,7 @@ func supplyFastaHeader(input []byte, genomeMap map[string]string) *bytes.Buffer 
 					fields[0] = fmt.Sprintf(">%s-%s", genomeName, genomeID)
 				}
 				// Join fields back together and convert to []byte
-				line = []byte(strings.Join(fields, "|"))
+				line = []byte(strings.Join(fields, "//"))
 			}
 		}
 

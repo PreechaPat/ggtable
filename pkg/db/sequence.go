@@ -76,9 +76,9 @@ func (seqdb *SequenceDB) GetGeneSequence(genomeID, contigID, geneID string, isPr
 	}
 
 	// Use samtools to fetch data
-	seq_name := fmt.Sprintf("%s|%s|%s", genomeID, contigID, geneID)
+	seq_name := fmt.Sprintf("%s//%s//%s", genomeID, contigID, geneID)
 
-	// samtools faidx all_genes.faa.gz "KCB09|contig000007|KCB09_00064:50-100"
+	// samtools faidx all_genes.faa.gz "KCB09//contig000007//KCB09_00064:50-100"
 	args := []string{"faidx", all_fasta_file, seq_name}
 	cmd := exec.Command("samtools", args...)
 
@@ -95,9 +95,9 @@ func (seqdb *SequenceDB) GetGeneSequence(genomeID, contigID, geneID string, isPr
 func (seqdb *SequenceDB) GetRegionSequence(genomeID, contigID string, start, end uint64) ([]byte, error) {
 
 	// Use samtools to fetch data
-	// "KCB09|contig000007|KCB09_00064:50-100"
+	// "KCB09//contig000007//KCB09_00064:50-100"
 	all_contigs_file := seqdb.getConcatContigNucl()
-	seq_name := fmt.Sprintf("%s|%s:%d-%d", genomeID, contigID, start, end)
+	seq_name := fmt.Sprintf("%s//%s:%d-%d", genomeID, contigID, start, end)
 
 	args := []string{"faidx", all_contigs_file, seq_name}
 	cmd := exec.Command("samtools", args...)
@@ -112,14 +112,14 @@ func (seqdb *SequenceDB) GetRegionSequence(genomeID, contigID string, start, end
 }
 
 // Retrieves gene sequences using Samtools faidx based on multiple gene names.
-// geneNames should be formatted as "genomeID|contigID|geneID"
+// geneNames should be formatted as "genomeID//contigID//geneID"
 func (seqdb *SequenceDB) GetMultipleGene(geneNames []string, isProt bool) ([]byte, error) {
 
 	var geneInputBuffer bytes.Buffer
 	var all_gene_file string
 
 	// Input for samtools ( stdin )
-	// The input is multiple lines of sequences id e.g. KCB09|contig000007|KCB09_00064:50-100
+	// The input is multiple lines of sequences id e.g. KCB09//contig000007//KCB09_00064:50-100
 	for _, s := range geneNames {
 		geneInputBuffer.WriteString(s)
 		geneInputBuffer.WriteString("\n")
@@ -148,7 +148,7 @@ func (seqdb *SequenceDB) GetMultipleGene(geneNames []string, isProt bool) ([]byt
 }
 
 // Retrieves region sequences using Samtools faidx based on multiple region names.
-// regionNames should be formatted as "genomeID|contigID:start-end"
+// regionNames should be formatted as "genomeID//contigID:start-end"
 func (seqdb *SequenceDB) GetMultipleRegion(regionNames []string) ([]byte, error) {
 
 	var contigInputBuffer bytes.Buffer

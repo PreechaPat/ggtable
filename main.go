@@ -103,6 +103,10 @@ func run(cfg AppConfig) error {
 	seqDB := path.Join(cfg.DataDir, "db/sequence_db")
 
 	// DB connect
+	// FIX: This create a new sqlite3 database if it does not exists.
+	// it should be an error instead.
+
+	// NOTE: Also, this part should be move into NewGeneClusterDB
 	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(10000)&_pragma=synchronous(NORMAL)", sqlitePath)
 	dbConn, err := sql.Open("sqlite", dsn)
 	if err != nil {

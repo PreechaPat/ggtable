@@ -87,12 +87,20 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 	var output bytes.Buffer
 	reader := bufio.NewReader(htmlContent)
 
-	// HACK: Assuming MAP_HEADER is available in your scope
+	// 1. Define your separator here
+	sep := "//"
+	// Escape the separator for use in Regex (crucial if you use characters like '.', '*', or '|')
+	escSep := regexp.QuoteMeta(sep)
+
 	genomeid_lookup := MAP_HEADER
 
-	// Regexes are now more specific and only applied in their respective states
-	tocRegex := regexp.MustCompile(`^(\S+)\|(\S+)\|(\S+)`)
-	alignHeaderRegex := regexp.MustCompile(`^(>.*?<a.*?></a>\s)(\S+)\|(\S+)\|(\S+)$`)
+	// 2. Dynamic Regex construction using the separator
+	// tocRegex: captures genomeID, contig, and gene separated by your delimiter
+	tocRegex := regexp.MustCompile(fmt.Sprintf(`^(\S+)%s(\S+)%s(\S+)`, escSep, escSep))
+
+	// alignHeaderRegex: handles the BLAST HTML anchor tags followed by the delimited ID
+	alignHeaderRegex := regexp.MustCompile(fmt.Sprintf(`^(>.*?<a.*?></a>\s)(\S+)%s(\S+)%s(\S+)$`, escSep, escSep))
+
 	spaceDetection := regexp.MustCompile(`\s{2,}`)
 
 	state := StateHeader
@@ -103,17 +111,14 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 			return nil, err
 		}
 
-		// Clean the line for easier processing, but we will write it with a newline later
 		cleanLine := strings.TrimSuffix(line, "\n")
 
 		switch state {
 		case StateHeader:
-			if strings.HasSuffix(cleanLine, "Score     E") {
-				// Format the column headers
+			if strings.HasSuffix(cleanLine, "Score  E") {
 				newline := fmt.Sprintf("%-90s %-10s %-5s", " ", "Score", "E")
 				output.WriteString(newline + "\n")
 			} else if strings.HasPrefix(cleanLine, "Sequences producing significant alignments:") {
-				// Transition to TOC state
 				state = StateTOC
 				newline := fmt.Sprintf("%-90s %-10s %-5s", "Sequences producing significant alignments:", "(Bits)", "Value")
 				output.WriteString(newline + "\n")
@@ -122,19 +127,18 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 			}
 
 		case StateTOC:
-			// If we hit a line starting with ">", we've entered the Alignments section
 			if strings.HasPrefix(strings.TrimSpace(cleanLine), ">") {
 				state = StateAlignments
-				// Re-evaluate this line in the Alignments state
-				processAlignmentLine(&output, cleanLine, alignHeaderRegex, genomeid_lookup)
+				// Pass the separator to the helper
+				processAlignmentLine(&output, cleanLine, alignHeaderRegex, genomeid_lookup, sep)
 			} else {
-				// Process TOC rows
 				matches := tocRegex.FindStringSubmatch(cleanLine)
 				if len(matches) == 4 {
 					genomeID, contig, gene := matches[1], matches[2], matches[3]
 
 					if genomeName, ok := genomeid_lookup[genomeID]; ok {
-						replacement := fmt.Sprintf("%s-%s|%s|%s", genomeName, genomeID, contig, gene)
+						// 3. Reconstruct using the variable
+						replacement := fmt.Sprintf("%s-%s%s%s%s%s", genomeName, genomeID, sep, contig, sep, gene)
 						parts := spaceDetection.Split(cleanLine, 3)
 
 						if len(parts) >= 3 {
@@ -144,24 +148,20 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 						}
 					}
 				}
-				// Default line handling if not a matching TOC row
 				output.WriteString(cleanLine + "\n")
 			}
 
 		case StateAlignments:
-			// If we hit the footer stats, transition to Footer
 			if strings.HasPrefix(cleanLine, "  Database:") || strings.HasPrefix(strings.TrimSpace(cleanLine), "Lambda") {
 				state = StateFooter
 				output.WriteString(cleanLine + "\n")
 			} else if strings.HasPrefix(strings.TrimSpace(cleanLine), ">") {
-				processAlignmentLine(&output, cleanLine, alignHeaderRegex, genomeid_lookup)
+				processAlignmentLine(&output, cleanLine, alignHeaderRegex, genomeid_lookup, sep)
 			} else {
-				// Regular alignment sequences (Query/Sbjct blocks)
 				output.WriteString(cleanLine + "\n")
 			}
 
 		case StateFooter:
-			// Dump the rest of the file without regex evaluation
 			output.WriteString(cleanLine + "\n")
 		}
 
@@ -173,17 +173,18 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 	return &output, nil
 }
 
-// processAlignmentLine handles the replacement and link injection for the detail blocks
-func processAlignmentLine(output *bytes.Buffer, line string, regex *regexp.Regexp, lookup map[string]string) {
+// Added sep string parameter here
+func processAlignmentLine(output *bytes.Buffer, line string, regex *regexp.Regexp, lookup map[string]string, sep string) {
 	matches := regex.FindStringSubmatch(line)
 	if len(matches) == 5 {
-		prefix := matches[1] // Captures the `><a name=BL_ORD_ID:1165942></a> ` part
+		prefix := matches[1]
 		genomeID := matches[2]
 		contig := matches[3]
 		gene := matches[4]
 
 		if genomeName, ok := lookup[genomeID]; ok {
-			replacement := fmt.Sprintf("%s-%s|%s|%s", genomeName, genomeID, contig, gene)
+			// 4. Use variable for reconstruction
+			replacement := fmt.Sprintf("%s-%s%s%s%s%s", genomeName, genomeID, sep, contig, sep, gene)
 			link := fmt.Sprintf("/cluster/heatmap/%s/%s/%s",
 				url.PathEscape(genomeID),
 				url.PathEscape(contig),
@@ -191,11 +192,9 @@ func processAlignmentLine(output *bytes.Buffer, line string, regex *regexp.Regex
 			)
 			linkHTML := fmt.Sprintf("<a href=\"%s\">View in gene table</a>", link)
 
-			// Reconstruct line: Prefix + Replaced String + Space + Link
 			output.WriteString(fmt.Sprintf("%s%s %s\n", prefix, replacement, linkHTML))
 			return
 		}
 	}
-	// Fallback if lookup fails or regex doesn't match perfectly
 	output.WriteString(line + "\n")
 }
