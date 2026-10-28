@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/url"
 	"os/exec"
@@ -98,8 +99,10 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 	// tocRegex: captures genomeID, contig, and gene separated by your delimiter
 	tocRegex := regexp.MustCompile(fmt.Sprintf(`^(\S+)%s(\S+)%s(\S+)`, escSep, escSep))
 
-	// alignHeaderRegex: handles the BLAST HTML anchor tags followed by the delimited ID
-	alignHeaderRegex := regexp.MustCompile(fmt.Sprintf(`^(>.*?<a.*?></a>\s)(\S+)%s(\S+)%s(\S+)$`, escSep, escSep))
+	// alignHeaderRegex: BLAST 2.17 with a -parse_seqids DB prints the ID first, then its anchor, then the title:
+	//   >GENOME//CONTIG//GENE<a name=GENOME//CONTIG//GENE></a> unnamed protein product
+	// Groups: genomeID, contig, gene, rest (anchor + title, kept so the TOC "#ID" jump still works).
+	alignHeaderRegex := regexp.MustCompile(fmt.Sprintf(`^>([^\s<]+?)%s([^\s<]+?)%s([^\s<]+?)(<a name=[^>]*></a>.*)$`, escSep, escSep))
 
 	spaceDetection := regexp.MustCompile(`\s{2,}`)
 
@@ -115,7 +118,7 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 
 		switch state {
 		case StateHeader:
-			if strings.HasSuffix(cleanLine, "Score  E") {
+			if fields := strings.Fields(cleanLine); len(fields) == 2 && fields[0] == "Score" && fields[1] == "E" {
 				newline := fmt.Sprintf("%-90s %-10s %-5s", " ", "Score", "E")
 				output.WriteString(newline + "\n")
 			} else if strings.HasPrefix(cleanLine, "Sequences producing significant alignments:") {
@@ -138,7 +141,7 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 
 					if genomeName, ok := genomeid_lookup[genomeID]; ok {
 						// 3. Reconstruct using the variable
-						replacement := fmt.Sprintf("%s-%s%s%s%s%s", genomeName, genomeID, sep, contig, sep, gene)
+						replacement := fmt.Sprintf("%s-%s%s%s%s%s", html.EscapeString(genomeName), genomeID, sep, contig, sep, gene)
 						parts := spaceDetection.Split(cleanLine, 3)
 
 						if len(parts) >= 3 {
@@ -162,6 +165,10 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 			}
 
 		case StateFooter:
+			// Multi-query input: each query repeats Query=/TOC/alignments/stats, so start over.
+			if strings.HasPrefix(cleanLine, "<b>Query=</b>") {
+				state = StateHeader
+			}
 			output.WriteString(cleanLine + "\n")
 		}
 
@@ -177,14 +184,14 @@ func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
 func processAlignmentLine(output *bytes.Buffer, line string, regex *regexp.Regexp, lookup map[string]string, sep string) {
 	matches := regex.FindStringSubmatch(line)
 	if len(matches) == 5 {
-		prefix := matches[1]
-		genomeID := matches[2]
-		contig := matches[3]
-		gene := matches[4]
+		genomeID := matches[1]
+		contig := matches[2]
+		gene := matches[3]
+		rest := matches[4] // <a name=ID></a> + title
 
 		if genomeName, ok := lookup[genomeID]; ok {
 			// 4. Use variable for reconstruction
-			replacement := fmt.Sprintf("%s-%s%s%s%s%s", genomeName, genomeID, sep, contig, sep, gene)
+			replacement := fmt.Sprintf(">%s-%s%s%s%s%s", html.EscapeString(genomeName), genomeID, sep, contig, sep, gene)
 			link := fmt.Sprintf("/cluster/heatmap/%s/%s/%s",
 				url.PathEscape(genomeID),
 				url.PathEscape(contig),
@@ -192,7 +199,7 @@ func processAlignmentLine(output *bytes.Buffer, line string, regex *regexp.Regex
 			)
 			linkHTML := fmt.Sprintf("<a href=\"%s\">View in gene table</a>", link)
 
-			output.WriteString(fmt.Sprintf("%s%s %s\n", prefix, replacement, linkHTML))
+			output.WriteString(fmt.Sprintf("%s%s %s\n", replacement, rest, linkHTML))
 			return
 		}
 	}
