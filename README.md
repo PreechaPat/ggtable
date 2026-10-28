@@ -1,8 +1,11 @@
-# Genome Table v.3 (ggserve)
+# Pins Gene Table v3 (ggserve)
 
-A web viewer for comparing gene content across genomes. For each gene cluster it shows which genomes carry it, how many copies, and how complete they are. You can also BLAST against the gene sets and download sequences. It is a full rewrite of the *P. insidiosum* genome database (v.2).
+Pins Gene Table is a web database for comparing gene content across *Pythium insidiosum* genomes. For each gene cluster it shows which genomes carry it, how many copies, and how complete they are. You can also BLAST against the gene sets and download sequences. The app works for any set of genomes, not only *P. insidiosum*.
 
-Live instance: https://dt2lrkh17no4h.cloudfront.net/
+This repo is v3, the newest version: a full rewrite of Pins Gene Table v2.0.
+
+- Live instance: https://dt2lrkh17no4h.cloudfront.net/
+- Paper (v2.0): [Pins Gene Table v2.0: An Online Genome Database of 37 *Pythium insidiosum* Strains for Gene Content Exploration and Phylogenomic Analysis](https://www.mdpi.com/2309-608X/10/2/112), *J. Fungi* 2024, 10(2), 112. doi:[10.3390/jof10020112](https://doi.org/10.3390/jof10020112)
 
 This README is for people who want to run it on their own data. In short, you need:
 
@@ -18,7 +21,7 @@ With Docker (the image already includes BLAST+):
 ```bash
 docker run -p 8080:8080 \
   --mount type=bind,source="$(pwd)/data",target=/data \
-  docker.io/preechapat/ggtable:3.0.4
+  ghcr.io/preechapat/ggtable:3.0.5
 ```
 
 Open http://localhost:8080. To build the image yourself instead, run `docker build . -t ggtable` in the repo root and use `ggtable` as the image name.
