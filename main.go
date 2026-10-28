@@ -25,6 +25,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// version is set at build time: go build -ldflags "-X main.version=3.0.5".
+var version = "dev"
+
 var (
 	ggtable_data     string
 	ggtable_title    string
@@ -47,7 +50,7 @@ func ParseConfig() AppConfig {
 	_ = godotenv.Load() // best-effort; env wins if present
 
 	cfg := AppConfig{
-		Version:  "3.0.3",
+		Version:  version,
 		DataDir:  getenv("GGTABLE_DATA", "./data"),
 		Title:    getenv("GGTITLE", ""),
 		Subtitle: getenv("GGSUBTITLE", ""),

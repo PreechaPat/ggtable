@@ -38,6 +38,8 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            VERSION=sha-${{ steps.shortsha.outputs.sha10 }}
           tags: |
             ${{ env.REGISTRY }}/${{ steps.lower.outputs.image_name }}:sha-${{ steps.shortsha.outputs.sha10 }}
             ${{ env.REGISTRY }}/${{ steps.lower.outputs.image_name }}:latest

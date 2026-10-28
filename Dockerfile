@@ -6,7 +6,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY static ./static
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ggtable .
+# VERSION is baked into the binary (main.version) and shown in the startup log.
+ARG VERSION=dev
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${VERSION}" -o ggtable .
 
 # Runtime image
 FROM debian:trixie-slim AS prod
