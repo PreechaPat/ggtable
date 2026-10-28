@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -103,15 +105,20 @@ func (appConfig *AppContext) ClusterDetailPage(w http.ResponseWriter, r *http.Re
 
 	cluster_id := r.PathValue("cluster_id")
 
-	res, err_query := model.GetCluster(appConfig.GCDB.SQL, cluster_id)
-
-	if err_query != nil {
-		panic(err_query)
+	res, err := model.GetCluster(appConfig.GCDB.SQL, cluster_id)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, fmt.Sprintf("Cluster %q not found", cluster_id), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		logger.Error("failed to load cluster", zap.String("cluster_id", cluster_id), zap.Error(err))
+		http.Error(w, "Failed to load cluster", http.StatusInternalServerError)
+		return
 	}
 
-	err := render.RenderClusterTablePage(w, res)
-
-	if err != nil {
-		panic(err)
+	// The template streams straight to w, so a status can't be changed once it
+	// has started writing; log the failure instead.
+	if err := render.RenderClusterTablePage(w, res); err != nil {
+		logger.Error("failed to render cluster table", zap.String("cluster_id", cluster_id), zap.Error(err))
 	}
 }

@@ -185,7 +185,6 @@ These are worth knowing before you build on the code:
 - Tests in `pkg/db` and `pkg/model` currently fail. They expect BLAST+ on `PATH` and fixtures under `test_data/` (gitignored), and the local fixtures still use the old `|` ID separator.
 - The app has no authentication or rate limiting. Each BLAST request starts a BLAST+ process. Put it behind a reverse proxy or CDN before exposing it publicly.
 - The cluster-table and BLAST pages use `text/template`, which does no HTML escaping. Only load data you trust.
-- `ClusterDetailPage` panics on an unknown cluster ID. `net/http` recovers from the panic, but the client gets an empty response.
 
 ## Contributing
 
