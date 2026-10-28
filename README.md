@@ -6,7 +6,7 @@ Live instance: https://dt2lrkh17no4h.cloudfront.net/
 
 This README is for people who want to run it on their own data. In short, you need:
 
-1. A data directory with one SQLite database and three BLAST databases ([Your data](#your-data)).
+1. A data directory with one SQLite database and three BLAST databases ([Your data](#2-your-data)).
 2. Docker, or Go ≥ 1.25 plus NCBI BLAST+ on `PATH`.
 
 The data itself is not in this repo. It is produced by a separate preparation pipeline (`ggprep`).
