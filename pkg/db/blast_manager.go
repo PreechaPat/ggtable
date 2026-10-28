@@ -29,7 +29,9 @@ type BlastJob struct {
 	UpdatedAt time.Time
 }
 
-const maxJobs = 3
+// maxJobs caps how many BLAST results are kept in memory; older ones are evicted.
+// Stopgap until jobs are persisted to disk.
+const maxJobs = 5
 
 // BlastManager stores BLAST job states indexed by job ID.
 type BlastManager struct {

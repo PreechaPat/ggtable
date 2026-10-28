@@ -21,7 +21,7 @@ With Docker (the image already includes BLAST+):
 ```bash
 docker run -p 8080:8080 \
   --mount type=bind,source="$(pwd)/data",target=/data \
-  ghcr.io/preechapat/ggtable:3.0.5
+  ghcr.io/preechapat/ggtable:3.0.6
 ```
 
 Open http://localhost:8080. To build the image yourself instead, run `docker build . -t ggtable` in the repo root and use `ggtable` as the image name.
@@ -95,7 +95,7 @@ Old keys (`GGTABLE_DB_SQLITE`, `GGSEQDB`, `GGSEP`) are ignored.
 
 - There is no authentication or rate limiting, and each BLAST request starts a BLAST+ process. Put it behind a reverse proxy or CDN.
 - The cluster-table and BLAST pages don't HTML-escape their content. Only load data you trust.
-- BLAST jobs live in memory, and only the latest 3 are kept. A restart loses them.
+- BLAST jobs live in memory, and only the latest 5 are kept. A restart loses them.
 
 ## Linking and scripting
 
