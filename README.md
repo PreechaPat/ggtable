@@ -26,11 +26,13 @@ docker run -p 8080:8080 \
 
 Open http://localhost:8080. To build the image yourself instead, run `docker build . -t ggtable` in the repo root and use `ggtable` as the image name.
 
-Without Docker, from the repo root (static files are served from `./static`):
+Without Docker, from the repo root:
 
 ```bash
-go run . -data ./data -v      # -v = debug logging
+go run . -data /path/to/data -v   # -v = debug logging
 ```
+
+The JS/CSS in `static/` is compiled into the binary, so a built `ggtable` runs from any directory: `./ggtable -data /path/to/data`.
 
 ## 2. Your data
 
@@ -87,6 +89,7 @@ Each setting can come from a `.env` file, an environment variable, or a flag. La
 | `GGTABLE_ADDR` | `-addr`     | `0.0.0.0:8080` | Listen address |
 | `GGTITLE`      | `-title`    | empty          | Page title |
 | `GGSUBTITLE`   | `-subtitle` | empty          | Page subtitle |
+| `GGTABLE_STATIC` | `-static` | empty (embedded) | Serve `/static/` from this directory instead of the copy built into the binary. For editing JS/CSS without rebuilding, e.g. `-static ./static`. |
 | `GGSORTED`     | none        | empty          | Comma-separated `genome_id`s: which genomes appear in the heatmap, and in what order. Set it: without it the column order changes between restarts. |
 
 Old keys (`GGTABLE_DB_SQLITE`, `GGSEQDB`, `GGSEP`) are ignored.
@@ -123,7 +126,7 @@ pkg/handler/    HTTP handlers: parse query → call model → render
 pkg/model/      SQL queries, domain types, BLAST execution and output rewriting
 pkg/db/         DB + blastdbcmd wrappers, in-memory BLAST job manager
 pkg/render/     HTML templates (Go string constants), heatmap colours
-static/         JS/CSS served at /static/
+static/         JS/CSS served at /static/, embedded into the binary
 ```
 
 Common changes:

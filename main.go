@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"flag"
 	"fmt"
+	"io/fs"
 	"mime"
 	"net/http"
 	"os"
@@ -43,6 +45,8 @@ type AppConfig struct {
 	Addr     string // listen addr, default 0.0.0.0:8080
 	Verbose  bool   // -v
 	Sorted   string
+	// StaticDir serves /static/ from disk instead of the embedded copy (dev only).
+	StaticDir string // GGTABLE_STATIC
 }
 
 // ParseConfig loads .env (if present), uses env as defaults, and then parses flags.
@@ -50,12 +54,13 @@ func ParseConfig() AppConfig {
 	_ = godotenv.Load() // best-effort; env wins if present
 
 	cfg := AppConfig{
-		Version:  version,
-		DataDir:  getenv("GGTABLE_DATA", "./data"),
-		Title:    getenv("GGTITLE", ""),
-		Subtitle: getenv("GGSUBTITLE", ""),
-		Addr:     getenv("GGTABLE_ADDR", "0.0.0.0:8080"),
-		Sorted:   getenv("GGSORTED", ""),
+		Version:   version,
+		DataDir:   getenv("GGTABLE_DATA", "./data"),
+		Title:     getenv("GGTITLE", ""),
+		Subtitle:  getenv("GGSUBTITLE", ""),
+		Addr:      getenv("GGTABLE_ADDR", "0.0.0.0:8080"),
+		Sorted:    getenv("GGSORTED", ""),
+		StaticDir: getenv("GGTABLE_STATIC", ""),
 	}
 
 	flag.BoolVar(&cfg.Verbose, "v", false, "Enable verbose (debug) logging")
@@ -63,6 +68,7 @@ func ParseConfig() AppConfig {
 	flag.StringVar(&cfg.Title, "title", cfg.Title, "Application title (default from $GGTITLE)")
 	flag.StringVar(&cfg.Subtitle, "subtitle", cfg.Subtitle, "Application subtitle (default from $GGSUBTITLE)")
 	flag.StringVar(&cfg.Addr, "addr", cfg.Addr, "HTTP listen address")
+	flag.StringVar(&cfg.StaticDir, "static", cfg.StaticDir, "Serve /static/ from this directory instead of the embedded files, for editing JS/CSS without rebuilding (default from $GGTABLE_STATIC)")
 
 	flag.Parse()
 	return cfg
@@ -142,6 +148,9 @@ func run(cfg AppConfig) error {
 
 	// Router
 	mux := NewRouter(appConfig)
+	if err := setupStaticFiles(mux, cfg.StaticDir); err != nil {
+		return err
+	}
 
 	// Initialize header map from genome_id to full name
 	if err := model.InitMapHeader(dbConn); err != nil {
@@ -193,19 +202,42 @@ func NewRouter(appConfig *handler.AppContext) *http.ServeMux {
 	mux.HandleFunc("GET /sequence/by-region", appConfig.GetRegionSequenceHandler)
 	mux.HandleFunc("GET /sequence/by-cluster", appConfig.GetSequenceByClusterIDHandler)
 
-	// Static
-	setupStaticFiles(mux)
 	// setupSPA(mux) // optional
 
 	return mux
 }
 
-// Manually add static for all route that use this
-func setupStaticFiles(mux *http.ServeMux) {
+// staticFS holds static/ compiled into the binary, so it runs from any directory.
+//
+//go:embed static
+var staticFS embed.FS
+
+// setupStaticFiles serves /static/ from the embedded files, or from staticDir
+// on disk when set (to edit JS/CSS without rebuilding).
+func setupStaticFiles(mux *http.ServeMux, staticDir string) error {
 	_ = mime.AddExtensionType(".js", "text/javascript")
 	_ = mime.AddExtensionType(".css", "text/css")
-	fs := http.FileServer(http.Dir("./static/"))
-	mux.Handle("GET /static/", http.StripPrefix("/static/", fs))
+
+	var files fs.FS
+	if staticDir != "" {
+		info, err := os.Stat(staticDir)
+		if err != nil {
+			return fmt.Errorf("cannot use static dir (omit -static to use embedded files): %w", err)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("static dir %q is not a directory (omit -static to use embedded files)", staticDir)
+		}
+		files = os.DirFS(staticDir)
+		logger.Info("Serving static files from disk", zap.String("dir", staticDir))
+	} else {
+		sub, err := fs.Sub(staticFS, "static")
+		if err != nil {
+			return fmt.Errorf("open embedded static files: %w", err)
+		}
+		files = sub
+	}
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(files)))
+	return nil
 }
 
 func setupSPA(mux *http.ServeMux) {

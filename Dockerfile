@@ -5,7 +5,6 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY static ./static
 # VERSION is baked into the binary (main.version) and shown in the startup log.
 ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${VERSION}" -o ggtable .
@@ -25,7 +24,6 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 COPY --from=builder /app/ggtable .
-COPY --from=builder /app/static ./static
 
 # Expose the port that the app listens on (if needed)
 EXPOSE 8080
