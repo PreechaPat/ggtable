@@ -81,7 +81,7 @@ Add indexes on `*_matches.cluster_id`, `*_matches.genome_id`, `gene_matches.gene
 
 ## 3. Configure
 
-Each setting can come from a `.env` file, an environment variable, or a flag. Later ones win, in that order.
+Each setting can come from a `.env` file, an environment variable, or a flag. Later ones win, in that order. Start from `cp .env.example .env`; `.env` is gitignored. `pins.env` holds the settings for the PINS Table instance: copy it to `.env`, or pass it to Docker with `--env-file pins.env`.
 
 | Env var        | Flag        | Default        | Purpose |
 |----------------|-------------|----------------|---------|

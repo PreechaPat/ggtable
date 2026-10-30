@@ -4,3 +4,4 @@ bin/
 air.ml
 .vscode/
 test_data/
+.env

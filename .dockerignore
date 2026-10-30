@@ -4,3 +4,5 @@ bin
 .dockerignore
 .git
 test_data/
+.env
+tmp
