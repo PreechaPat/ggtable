@@ -21,10 +21,10 @@ With Docker (the image already includes BLAST+):
 ```bash
 docker run -p 8080:8080 \
   --mount type=bind,source="$(pwd)/data",target=/data \
-  ghcr.io/preechapat/ggtable:3.0.6
+  ghcr.io/preechapat/ggtable:pins-latest
 ```
 
-Open http://localhost:8080. To build the image yourself instead, run `docker build . -t ggtable` in the repo root and use `ggtable` as the image name.
+Open http://localhost:8080. Published images have `pins.env` (the PINS Table genome order) built in; tags are `pins-latest`, `pins-sha-<commit>`, `pins-<version>`, and `latest`. With your own data, override it at run time with `--env-file mylab.env`, or build an image with your settings: `docker build . -t ggtable --build-arg ENV_FILE=mylab.env`.
 
 Without Docker, from the repo root:
 
@@ -81,7 +81,7 @@ Add indexes on `*_matches.cluster_id`, `*_matches.genome_id`, `gene_matches.gene
 
 ## 3. Configure
 
-Each setting can come from a `.env` file, an environment variable, or a flag. Later ones win, in that order. Start from `cp .env.example .env`; `.env` is gitignored. `pins.env` holds the settings for the PINS Table instance: copy it to `.env`, or pass it to Docker with `--env-file pins.env`.
+Each setting can come from a `.env` file, an environment variable, or a flag. Later ones win, in that order. Start from `cp .env.example .env`; `.env` is gitignored. `pins.env` holds the settings for the PINS Table instance: copy it to `.env`, or pass it to Docker with `--env-file pins.env`. Docker images built from this repo include `pins.env` as `/app/.env` unless built with `--build-arg ENV_FILE=<name>.env`; run-time `-e` and `--env-file` still override it.
 
 | Env var        | Flag        | Default        | Purpose |
 |----------------|-------------|----------------|---------|
@@ -140,8 +140,9 @@ Build, test, release:
 ```bash
 go build ./... && go vet ./... && go test ./...
 air -c air.ml                              # live reload during development
-docker build . -t ggtable                   # local image, uncommitted changes included
-scripts/publish-image.sh --version 3.0.5   # build + push to GHCR (or tag v3.0.5 first and omit --version)
+docker build . -t ggtable:pins             # local image with pins.env, uncommitted changes included
+scripts/publish-image.sh --version 3.0.7   # build + push pins-sha-<commit>, pins-latest, latest, pins-3.0.7
+scripts/publish-image.sh --env-file mylab.env --no-push   # other settings: mylab-sha-<commit>, mylab-latest
 ```
 
 The dev container (`.devcontainer/`, `docker-compose.yml`) expects the data directory next to the repo, at `../data`. It mounts the repo's parent folder at `/workspaces` and `../data` at `/data`.
