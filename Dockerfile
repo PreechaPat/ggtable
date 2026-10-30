@@ -25,13 +25,6 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 WORKDIR /app
 COPY --from=builder /app/ggtable .
 
-# Settings baked into the image as /app/.env (title, subtitle, GGSORTED).
-# Default is the PINS Table instance; pick another with --build-arg ENV_FILE=<name>.env.
-# docker run -e / --env-file still override these at run time.
-ARG ENV_FILE=pins.env
-LABEL ggtable.env-file=${ENV_FILE}
-COPY ${ENV_FILE} ./.env
-
 # Expose the port that the app listens on (if needed)
 EXPOSE 8080
 

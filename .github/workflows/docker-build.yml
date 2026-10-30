@@ -40,8 +40,6 @@ jobs:
           push: true
           build-args: |
             VERSION=sha-${{ steps.shortsha.outputs.sha10 }}
-            ENV_FILE=pins.env
           tags: |
-            ${{ env.REGISTRY }}/${{ steps.lower.outputs.image_name }}:pins-sha-${{ steps.shortsha.outputs.sha10 }}
-            ${{ env.REGISTRY }}/${{ steps.lower.outputs.image_name }}:pins-latest
+            ${{ env.REGISTRY }}/${{ steps.lower.outputs.image_name }}:sha-${{ steps.shortsha.outputs.sha10 }}
             ${{ env.REGISTRY }}/${{ steps.lower.outputs.image_name }}:latest
