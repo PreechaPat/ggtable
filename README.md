@@ -144,6 +144,8 @@ scripts/build.sh                           # local image
 scripts/publish-image.sh --version 3.0.5   # build + push to GHCR (or tag v3.0.5 first and omit --version)
 ```
 
+The dev container (`.devcontainer/`, `docker-compose.yml`) expects the data directory next to the repo, at `../data`. It mounts the repo's parent folder at `/workspaces` and `../data` at `/data`.
+
 `publish-image.sh` refuses to run with uncommitted changes and needs a `gh` token with `write:packages`. The version is compiled into the binary and printed in the startup log.
 
 Known issue: tests in `pkg/db` and `pkg/model` fail without BLAST+ on `PATH` and the gitignored fixtures in `test_data/`, and those fixtures still use the old `|` separator.
