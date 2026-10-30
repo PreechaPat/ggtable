@@ -140,7 +140,7 @@ Build, test, release:
 ```bash
 go build ./... && go vet ./... && go test ./...
 air -c air.ml                              # live reload during development
-scripts/build.sh                           # local image
+docker build . -t ggtable                   # local image, uncommitted changes included
 scripts/publish-image.sh --version 3.0.5   # build + push to GHCR (or tag v3.0.5 first and omit --version)
 ```
 
