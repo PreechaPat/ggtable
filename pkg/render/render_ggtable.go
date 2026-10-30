@@ -186,10 +186,8 @@ func init() {
 	</head>
 	<body>
 		<header class="app-header">
-			<h1 class="app-name">Pins Gene Table v3</h1>
-			<p class="app-description">
-				the online informatics tool for analyzing and comparing gene content of P. insidiosum with related species.
-			</p>
+			<h1 class="app-name">{{.Site.Title}}</h1>
+			{{with .Site.Subtitle}}<p class="app-description">{{.}}</p>{{end}}
 		</header>
 		<div class="gtable-header">
 			{{template "combinedForms" .}}
@@ -439,7 +437,17 @@ func init() {
 	searchPageTemplate = template.Must(searchPageTemplate.Parse(paginationTmpl))
 }
 
+// SiteInfo is the page header text, set by GGTITLE / GGSUBTITLE.
+type SiteInfo struct {
+	Title    string
+	Subtitle string
+}
+
+// DefaultTitle is the header title when GGTITLE is not set.
+const DefaultTitle = "Gene Table v3"
+
 type clusterHeatmapPageData struct {
+	Site              SiteInfo
 	Rows              []*model.Cluster
 	SelectedGenomeIDs []string
 	AllGenomeIDs      []string
@@ -456,7 +464,7 @@ type clusterHeatmapPageData struct {
 	ColorBy           string
 }
 
-func buildClusterHeatmapPageData(rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) clusterHeatmapPageData {
+func buildClusterHeatmapPageData(site SiteInfo, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) clusterHeatmapPageData {
 	genomeIDAll := model.ALL_GENOME_ID
 	genomeMapAll := model.MAP_HEADER
 	header := searchRequest.Genome_IDs
@@ -480,6 +488,7 @@ func buildClusterHeatmapPageData(rows []*model.Cluster, searchRequest model.Clus
 	}
 
 	data := clusterHeatmapPageData{
+		Site:              site,
 		Rows:              rows,
 		SelectedGenomeIDs: reorderedGenomeIDs,
 		AllGenomeIDs:      genomeIDAll,
@@ -508,7 +517,7 @@ func buildClusterHeatmapPageData(rows []*model.Cluster, searchRequest model.Clus
 }
 
 // RenderClusterHeatmapPage renders the search heatmap table view for one or more clusters.
-func RenderClusterHeatmapPage(w io.Writer, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) error {
-	data := buildClusterHeatmapPageData(rows, searchRequest, totalPage)
+func RenderClusterHeatmapPage(w io.Writer, site SiteInfo, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) error {
+	data := buildClusterHeatmapPageData(site, rows, searchRequest, totalPage)
 	return searchPageTemplate.Execute(w, data)
 }

@@ -22,10 +22,8 @@ func init() {
 	</head>
 	<body>
 		<header class="app-header">
-			<h1 class="app-name">Pins Gene Table v3</h1>
-			<p class="app-description">
-				the online informatics tool for analyzing and comparing gene content of P. insidiosum with related species.
-			</p>
+			<h1 class="app-name">{{.Site.Title}}</h1>
+			{{with .Site.Subtitle}}<p class="app-description">{{.}}</p>{{end}}
 		</header>
 		<div class="gtable-header">
 			<div class="combined-forms">
@@ -201,7 +199,7 @@ func init() {
 }
 
 // RenderClusterStandaloneHeatmapPage renders the cluster heatmap without search/BLAST controls.
-func RenderClusterStandaloneHeatmapPage(w io.Writer, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) error {
-	data := buildClusterHeatmapPageData(rows, searchRequest, totalPage)
+func RenderClusterStandaloneHeatmapPage(w io.Writer, site SiteInfo, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) error {
+	data := buildClusterHeatmapPageData(site, rows, searchRequest, totalPage)
 	return clusterPageTemplate.Execute(w, data)
 }

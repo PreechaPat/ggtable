@@ -21,6 +21,7 @@ import (
 	"github.com/yumyai/ggtable/pkg/db"
 	"github.com/yumyai/ggtable/pkg/handler"
 	"github.com/yumyai/ggtable/pkg/model"
+	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -56,7 +57,7 @@ func ParseConfig() AppConfig {
 	cfg := AppConfig{
 		Version:   version,
 		DataDir:   getenv("GGTABLE_DATA", "./data"),
-		Title:     getenv("GGTITLE", ""),
+		Title:     getenv("GGTITLE", render.DefaultTitle),
 		Subtitle:  getenv("GGSUBTITLE", ""),
 		Addr:      getenv("GGTABLE_ADDR", "0.0.0.0:8080"),
 		Sorted:    getenv("GGSORTED", ""),
@@ -138,13 +139,12 @@ func run(cfg AppConfig) error {
 		BlastManager: db.NewBlastManager(),
 		ProtBLASTDB:  protDB,
 		NuclBLASTDB:  nuclDB,
+		Site:         render.SiteInfo{Title: cfg.Title, Subtitle: cfg.Subtitle},
 	}
 
 	logger.Info("Start", zap.String("Version", cfg.Version))
 	logger.Info("Open database", zap.String("DB_LOC", sqlitePath))
-	if cfg.Title != "" {
-		logger.Info("App title", zap.String("title", cfg.Title), zap.String("subtitle", cfg.Subtitle))
-	}
+	logger.Info("App title", zap.String("title", cfg.Title), zap.String("subtitle", cfg.Subtitle))
 
 	// Router
 	mux := NewRouter(appConfig)

@@ -4,6 +4,7 @@ package handler
 
 import (
 	"github.com/yumyai/ggtable/pkg/db"
+	"github.com/yumyai/ggtable/pkg/render"
 )
 
 type AppContext struct {
@@ -11,4 +12,5 @@ type AppContext struct {
 	BlastManager *db.BlastManager
 	ProtBLASTDB  string
 	NuclBLASTDB  string
+	Site         render.SiteInfo // page header title/subtitle
 }

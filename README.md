@@ -87,8 +87,8 @@ Each setting can come from a `.env` file, an environment variable, or a flag. La
 |----------------|-------------|----------------|---------|
 | `GGTABLE_DATA` | `-data`     | `./data`       | Data directory |
 | `GGTABLE_ADDR` | `-addr`     | `0.0.0.0:8080` | Listen address |
-| `GGTITLE`      | `-title`    | empty          | Page title |
-| `GGSUBTITLE`   | `-subtitle` | empty          | Page subtitle |
+| `GGTITLE`      | `-title`    | `Gene Table v3` | Header title on the heatmap pages (`pins.env` sets `Pins Gene Table v3`) |
+| `GGSUBTITLE`   | `-subtitle` | empty (hidden) | Header line under the title |
 | `GGTABLE_STATIC` | `-static` | empty (embedded) | Serve `/static/` from this directory instead of the copy built into the binary. For editing JS/CSS without rebuilding, e.g. `-static ./static`. |
 | `GGSORTED`     | none        | empty          | Comma-separated `genome_id`s: which genomes appear in the heatmap, and in what order. Set it: without it the column order changes between restarts. |
 

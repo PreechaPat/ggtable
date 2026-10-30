@@ -92,7 +92,7 @@ func (appConfig *AppContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.R
 		// RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 
-	err3 := render.RenderClusterStandaloneHeatmapPage(w, []*model.Cluster{cluster_prob}, search_request, 1)
+	err3 := render.RenderClusterStandaloneHeatmapPage(w, appConfig.Site, []*model.Cluster{cluster_prob}, search_request, 1)
 
 	if err3 != nil {
 		fmt.Fprint(w, "ERROR")
