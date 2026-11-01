@@ -8,7 +8,7 @@ import (
 )
 
 // Routes returns the full HTTP handler: every route, /static/ served from
-// static, wrapped in request-ID and logging middleware.
+// static, wrapped in request-ID, logging and gzip middleware.
 func (app *AppContext) Routes(static fs.FS) http.Handler {
 	mux := http.NewServeMux()
 
@@ -33,7 +33,7 @@ func (app *AppContext) Routes(static fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/v1/health", HealthCheck)
 	mux.HandleFunc("GET /api/v1/cluster/{cluster_id}", app.ClusterDetailPage) // HTML for now, same as /cluster/table
 
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
+	mux.Handle("GET /static/", http.StripPrefix("/static/", newStaticHandler(static)))
 
-	return middle.RequestID(middle.Logging(mux))
+	return middle.RequestID(middle.Logging(middle.Gzip(mux)))
 }

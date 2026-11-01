@@ -85,3 +85,31 @@ func TestRoutes_BlastSubmit(t *testing.T) {
 		}
 	}
 }
+
+func TestRoutes_StaticETag(t *testing.T) {
+	h := sqlOnlyRoutes(t)
+	first := get(t, h, "GET", "/static/gene-table.js")
+	etag := first.Header().Get("ETag")
+	if etag == "" || first.Header().Get("Cache-Control") != "no-cache" {
+		t.Fatalf("headers = %v, want ETag and Cache-Control: no-cache", first.Header())
+	}
+
+	req := httptest.NewRequest("GET", "/static/gene-table.js", nil)
+	req.Header.Set("If-None-Match", etag)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != http.StatusNotModified || rr.Body.Len() != 0 {
+		t.Errorf("revalidation: status %d, %d bytes; want 304 and no body", rr.Code, rr.Body.Len())
+	}
+}
+
+func TestRoutes_GzipPages(t *testing.T) {
+	h := sqlOnlyRoutes(t)
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+	if rr.Code != 200 || rr.Header().Get("Content-Encoding") != "gzip" {
+		t.Errorf("main page: status %d, encoding %q; want gzip", rr.Code, rr.Header().Get("Content-Encoding"))
+	}
+}
