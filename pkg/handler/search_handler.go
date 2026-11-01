@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -55,6 +56,18 @@ func normalizeOrderDir(raw string) string {
 	}
 }
 
+// parseSort reads order_by and order_dir. A missing or unsortable field
+// (e.g. gene_id) falls back to cluster ID, so a bad link still shows a page.
+func parseSort(q url.Values) (model.ClusterField, string) {
+	field := model.ParseClusterField(q.Get("order_by"))
+	switch field {
+	case model.ClusterFieldFunction, model.ClusterFieldCOGID, model.ClusterFieldClusterID:
+	default:
+		field = model.ParseClusterField(defaultOrderBy)
+	}
+	return field, normalizeOrderDir(q.Get("order_dir"))
+}
+
 // Search page
 func (appConfig *AppContext) ClusterSearchPage(w http.ResponseWriter, r *http.Request) {
 
@@ -67,15 +80,10 @@ func (appConfig *AppContext) ClusterSearchPage(w http.ResponseWriter, r *http.Re
 	searchBy := r.URL.Query().Get("search_by")
 	searchByF := model.ParseClusterField(searchBy)
 
-	orderBy := r.URL.Query().Get("order_by")
-	if orderBy == "" {
-		orderBy = defaultOrderBy
-	}
-	orderByF := model.ParseClusterField(orderBy)
+	orderByF, orderDir := parseSort(r.URL.Query())
 
 	currentPage := parsePositiveIntFallback(r.URL.Query().Get("page"), defaultPageNumber)
 	pageSize := parsePositiveIntFallback(r.URL.Query().Get("page_size"), defaultPageSize)
-	orderDir := normalizeOrderDir(r.URL.Query().Get("order_dir"))
 
 	// Color selection canonicalization
 	// Accepted: gene_copy_number | max_gene_completeness
@@ -167,12 +175,7 @@ func (appConfig *AppContext) MainPage(w http.ResponseWriter, r *http.Request) {
 
 	pageNum := parsePositiveIntFallback(r.URL.Query().Get("page"), defaultPageNumber)
 
-	orderBy := r.URL.Query().Get("order_by")
-	if orderBy == "" {
-		orderBy = defaultOrderBy
-	}
-	orderByF := model.ParseClusterField(orderBy)
-	orderDir := normalizeOrderDir(r.URL.Query().Get("order_dir"))
+	orderByF, orderDir := parseSort(r.URL.Query())
 
 	// Color selection canonicalization
 	colorByRaw := r.URL.Query().Get("color_by")

@@ -160,7 +160,7 @@ func TestCluster(t *testing.T) {
 
 func TestMainPage(t *testing.T) {
 	db := New(testdb.New(t))
-	req := model.ClusterSearchRequest{Page: 1, Page_Size: 2}
+	req := model.ClusterSearchRequest{Order_By: model.ClusterFieldClusterID, Page: 1, Page_Size: 2}
 
 	page1, err := db.MainPage(ctx, req)
 	if err != nil || !reflect.DeepEqual(clusterIDs(page1), []string{"c1", "c2"}) {
@@ -173,7 +173,7 @@ func TestMainPage(t *testing.T) {
 	}
 
 	// Genome filter hides members of other genomes but keeps the clusters.
-	filtered, err := db.MainPage(ctx, model.ClusterSearchRequest{Page: 1, Page_Size: 10, Genome_IDs: []string{"G1"}})
+	filtered, err := db.MainPage(ctx, model.ClusterSearchRequest{Order_By: model.ClusterFieldClusterID, Page: 1, Page_Size: 10, Genome_IDs: []string{"G1"}})
 	if err != nil || !reflect.DeepEqual(clusterIDs(filtered), []string{"c1", "c2", "c3", "c4"}) {
 		t.Fatalf("filtered = %v, %v", clusterIDs(filtered), err)
 	}
@@ -275,5 +275,52 @@ func TestConcurrentPages(t *testing.T) {
 		if err := <-errs; err != nil {
 			t.Error(err)
 		}
+	}
+}
+
+func TestSortOrder(t *testing.T) {
+	conn := testdb.New(t)
+	// Same function as c2, to check the cluster_id tie-breaker.
+	if _, err := conn.Exec(`INSERT INTO gene_clusters (cluster_id, cog_id, function_description, expected_length)
+		VALUES ('c5', 'COG0000', 'Kinase', 100)`); err != nil {
+		t.Fatal(err)
+	}
+	db := New(conn)
+	tests := []struct {
+		field model.ClusterField
+		dir   string
+		want  []string
+	}{
+		{model.ClusterFieldClusterID, "asc", []string{"c1", "c2", "c3", "c4", "c5"}},
+		{model.ClusterFieldClusterID, "desc", []string{"c5", "c4", "c3", "c2", "c1"}},
+		{model.ClusterFieldFunction, "asc", []string{"c4", "c1", "c3", "c2", "c5"}},
+		{model.ClusterFieldFunction, "desc", []string{"c5", "c2", "c3", "c1", "c4"}},
+		{model.ClusterFieldCOGID, "desc", []string{"c4", "c3", "c2", "c1", "c5"}},
+		{model.ClusterFieldCOGID, "", []string{"c5", "c1", "c2", "c3", "c4"}}, // empty = ascending
+	}
+	for _, tt := range tests {
+		req := model.ClusterSearchRequest{Order_By: tt.field, Order_Dir: tt.dir, Page: 1, Page_Size: 10}
+		main, err := db.MainPage(ctx, req)
+		if err != nil || !reflect.DeepEqual(clusterIDs(main), tt.want) {
+			t.Errorf("MainPage(%s %s) = %v, %v; want %v", tt.field, tt.dir, clusterIDs(main), err, tt.want)
+		}
+		req.Search_For, req.Search_Field = "c", model.ClusterFieldClusterID
+		found, err := db.Search(ctx, req)
+		if err != nil || !reflect.DeepEqual(clusterIDs(found), tt.want) {
+			t.Errorf("Search(%s %s) = %v, %v; want %v", tt.field, tt.dir, clusterIDs(found), err, tt.want)
+		}
+	}
+
+	// Pages of a sort with ties neither overlap nor skip.
+	var paged []string
+	for page := 1; page <= 3; page++ {
+		got, err := db.MainPage(ctx, model.ClusterSearchRequest{Order_By: model.ClusterFieldFunction, Order_Dir: "desc", Page: page, Page_Size: 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		paged = append(paged, clusterIDs(got)...)
+	}
+	if want := []string{"c5", "c2", "c3", "c1", "c4"}; !reflect.DeepEqual(paged, want) {
+		t.Errorf("pages joined = %v, want %v", paged, want)
 	}
 }

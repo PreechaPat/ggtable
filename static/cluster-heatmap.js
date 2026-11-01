@@ -12,6 +12,11 @@ function submitHeatmapForm({ page, orderBy } = {}) {
   }
 
   if (orderBy !== undefined && orderInput) {
+    // Clicking the current sort column flips the direction; a new column starts ascending.
+    const dirInput = form.elements.namedItem('order_dir');
+    if (dirInput) {
+      dirInput.value = (orderInput.value === orderBy && dirInput.value !== 'desc') ? 'desc' : 'asc';
+    }
     orderInput.value = orderBy;
     if (pageInput) pageInput.value = 1;
   }

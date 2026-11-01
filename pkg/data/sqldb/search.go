@@ -13,48 +13,31 @@ import (
 // (unknown search or sort field), as opposed to database failures.
 var ErrInvalidSearch = fmt.Errorf("invalid search")
 
-// MainPage returns one page of all clusters, ordered by cluster ID.
+// MainPage returns one page of all clusters, sorted by req.Order_By and req.Order_Dir.
 func (db *DB) MainPage(ctx context.Context, req model.ClusterSearchRequest) ([]*model.Cluster, error) {
-	const q = `
-		CREATE TEMPORARY TABLE unique_clusters AS
-		SELECT cluster_id, cog_id, expected_length, function_description, representative_gene
-		FROM gene_clusters
-		ORDER BY cluster_id
-		LIMIT ? OFFSET ?`
-	return db.page(ctx, 10*time.Second, req, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, q, req.Page_Size, req.Offset()); err != nil {
-			return fmt.Errorf("select main page clusters: %w", err)
-		}
-		return nil
-	})
+	return db.selectPage(ctx, 10*time.Second, req, "1")
 }
 
 // Search returns one page of clusters matching req: by exact gene ID for
 // ClusterFieldGeneID, otherwise by substring of the chosen cluster field.
 func (db *DB) Search(ctx context.Context, req model.ClusterSearchRequest) ([]*model.Cluster, error) {
-	orderBy, err := orderByExpr(req.Order_By)
+	if req.Search_Field == model.ClusterFieldGeneID {
+		where := `gc.cluster_id IN (
+			SELECT gm.cluster_id FROM gene_matches gm
+			WHERE gm.gene_id = ? AND ` + genomeFilter("gm.genome_id") + `)`
+		return db.selectPage(ctx, 20*time.Second, req, where, req.Search_For)
+	}
+	where, err := whereExpr(req.Search_Field)
 	if err != nil {
 		return nil, err
 	}
-	if req.Search_Field == model.ClusterFieldGeneID {
-		q := `
-			CREATE TEMPORARY TABLE unique_clusters AS
-			SELECT gc.cluster_id, gc.cog_id, gc.expected_length, gc.function_description, gc.representative_gene
-			FROM gene_clusters gc
-			WHERE gc.cluster_id IN (
-				SELECT gm.cluster_id FROM gene_matches gm
-				WHERE gm.gene_id = ? AND ` + genomeFilter("gm.genome_id") + `)
-			ORDER BY ` + orderBy + `
-			LIMIT ? OFFSET ?`
-		return db.page(ctx, 20*time.Second, req, func(tx *sql.Tx) error {
-			if _, err := tx.ExecContext(ctx, q, req.Search_For, req.Page_Size, req.Offset()); err != nil {
-				return fmt.Errorf("select clusters by gene: %w", err)
-			}
-			return nil
-		})
-	}
+	return db.selectPage(ctx, 20*time.Second, req, where, likePattern(req.Search_For))
+}
 
-	where, err := whereExpr(req.Search_Field)
+// selectPage fills unique_clusters with one sorted page of the clusters
+// matching where (with args), then hydrates them.
+func (db *DB) selectPage(ctx context.Context, timeout time.Duration, req model.ClusterSearchRequest, where string, args ...any) ([]*model.Cluster, error) {
+	orderBy, err := orderByExpr(req.Order_By, req.Order_Dir)
 	if err != nil {
 		return nil, err
 	}
@@ -65,9 +48,10 @@ func (db *DB) Search(ctx context.Context, req model.ClusterSearchRequest) ([]*mo
 		WHERE ` + where + `
 		ORDER BY ` + orderBy + `
 		LIMIT ? OFFSET ?`
-	return db.page(ctx, 20*time.Second, req, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, q, likePattern(req.Search_For), req.Page_Size, req.Offset()); err != nil {
-			return fmt.Errorf("select clusters by %s: %w", req.Search_Field, err)
+	args = append(args, req.Page_Size, req.Offset())
+	return db.page(ctx, timeout, req, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, q, args...); err != nil {
+			return fmt.Errorf("select clusters (search by %s, order by %s): %w", req.Search_Field, orderBy, err)
 		}
 		return nil
 	})
@@ -153,15 +137,22 @@ func whereExpr(field model.ClusterField) (string, error) {
 	}
 }
 
-// orderByExpr returns the ORDER BY expression for field.
-func orderByExpr(field model.ClusterField) (string, error) {
+// orderByExpr returns the ORDER BY clause for field and dir ("desc", anything
+// else is ascending). cluster_id breaks ties, so pages do not overlap when
+// many clusters share a value; it runs in the same direction so SQLite can
+// walk the (column, cluster_id) index backwards.
+func orderByExpr(field model.ClusterField, dir string) (string, error) {
+	d := "ASC"
+	if dir == "desc" {
+		d = "DESC"
+	}
 	switch field {
 	case model.ClusterFieldFunction:
-		return "gc.function_description", nil
+		return "gc.function_description " + d + ", gc.cluster_id " + d, nil
 	case model.ClusterFieldCOGID:
-		return "gc.cog_id", nil
+		return "gc.cog_id " + d + ", gc.cluster_id " + d, nil
 	case model.ClusterFieldClusterID:
-		return "gc.cluster_id", nil
+		return "gc.cluster_id " + d, nil
 	default:
 		return "", fmt.Errorf("%w: cannot sort by %q, use function, cog_id or cluster_id", ErrInvalidSearch, field)
 	}
