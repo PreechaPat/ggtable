@@ -9,6 +9,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -16,6 +17,7 @@ import (
 	"github.com/yumyai/ggtable/logger"
 	"github.com/yumyai/ggtable/pkg/data"
 	"github.com/yumyai/ggtable/pkg/handler"
+	"github.com/yumyai/ggtable/pkg/middle"
 	"github.com/yumyai/ggtable/pkg/model"
 	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
@@ -42,6 +44,8 @@ type AppConfig struct {
 	Sorted   string
 	// StaticDir serves /static/ from disk instead of the embedded copy (dev only).
 	StaticDir string // GGTABLE_STATIC
+	// Gzip compresses responses in the app, for when no reverse proxy does it.
+	Gzip bool // GGTABLE_GZIP
 }
 
 // ParseConfig loads .env (if present), uses env as defaults, and then parses flags.
@@ -56,6 +60,7 @@ func ParseConfig() AppConfig {
 		Addr:      getenv("GGTABLE_ADDR", "0.0.0.0:8080"),
 		Sorted:    getenv("GGSORTED", ""),
 		StaticDir: getenv("GGTABLE_STATIC", ""),
+		Gzip:      getenvBool("GGTABLE_GZIP", false),
 	}
 
 	flag.BoolVar(&cfg.Verbose, "v", false, "Enable verbose (debug) logging")
@@ -64,6 +69,8 @@ func ParseConfig() AppConfig {
 	flag.StringVar(&cfg.Subtitle, "subtitle", cfg.Subtitle, "Application subtitle (default from $GGSUBTITLE)")
 	flag.StringVar(&cfg.Addr, "addr", cfg.Addr, "HTTP listen address")
 	flag.StringVar(&cfg.StaticDir, "static", cfg.StaticDir, "Serve /static/ from this directory instead of the embedded files, for editing JS/CSS without rebuilding (default from $GGTABLE_STATIC)")
+
+	flag.BoolVar(&cfg.Gzip, "gzip", cfg.Gzip, "Gzip responses; use when no reverse proxy (nginx, Cloudflare) compresses them (default from $GGTABLE_GZIP)")
 
 	flag.Parse()
 	return cfg
@@ -129,7 +136,12 @@ func run(cfg AppConfig) error {
 	}
 
 	logger.Info("Server starting", zap.String("addr", cfg.Addr))
-	if err := http.ListenAndServe(cfg.Addr, appConfig.Routes(static)); err != nil {
+	routes := appConfig.Routes(static)
+	if cfg.Gzip {
+		routes = middle.Gzip(routes)
+	}
+	logger.Info("Response compression", zap.Bool("gzip", cfg.Gzip))
+	if err := http.ListenAndServe(cfg.Addr, routes); err != nil {
 		return fmt.Errorf("serve on %s: %w", cfg.Addr, err)
 	}
 	return nil
@@ -164,6 +176,21 @@ func staticFiles(staticDir string) (fs.FS, error) {
 	}
 	logger.Info("Serving static files from disk", zap.String("dir", staticDir))
 	return os.DirFS(staticDir), nil
+}
+
+// getenvBool reads a boolean env var (1/0, true/false, ...). An invalid value
+// stops the program, as an invalid flag would.
+func getenvBool(k string, defaultVal bool) bool {
+	v := os.Getenv(k)
+	if v == "" {
+		return defaultVal
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "invalid %s=%q: use true or false\n", k, v)
+		os.Exit(2)
+	}
+	return b
 }
 
 // small helper

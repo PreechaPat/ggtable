@@ -91,7 +91,8 @@ Each setting can come from a `.env` file, an environment variable, or a flag. La
 | `GGTITLE`      | `-title`    | `Gene Table v3` | Header title on the heatmap pages (`pins.env` sets `Pins Gene Table v3`) |
 | `GGSUBTITLE`   | `-subtitle` | empty (hidden) | Header line under the title |
 | `GGTABLE_STATIC` | `-static` | empty (embedded) | Serve `/static/` from this directory instead of the copy built into the binary. For editing JS/CSS without rebuilding, e.g. `-static ./static`. |
-| `GGSORTED`     | none        | empty          | Comma-separated `genome_id`s: which genomes appear in the heatmap, and in what order. Set it: without it the column order changes between restarts. |
+| `GGSORTED`     | none        | empty          | Comma-separated `genome_id`s: which genomes appear in the heatmap, and in what order. Without it, all genomes are shown in `genome_info` table order. |
+| `GGTABLE_GZIP` | `-gzip`     | `false`        | Gzip responses in the app. Turn it on when ggtable is exposed directly; leave it off behind nginx or Cloudflare, which compress for you. The main page is about 9 MB uncompressed with 100 genomes. |
 
 Old keys (`GGTABLE_DB_SQLITE`, `GGSEQDB`, `GGSEP`) are ignored.
 
