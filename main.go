@@ -123,50 +123,16 @@ func run(cfg AppConfig) error {
 	logger.Info("Opened data directory", zap.String("dir", cfg.DataDir), zap.Int("genomes", len(genomes.IDs())))
 	logger.Info("App title", zap.String("title", cfg.Title), zap.String("subtitle", cfg.Subtitle))
 
-	// Router
-	mux := NewRouter(appConfig)
-	if err := setupStaticFiles(mux, cfg.StaticDir); err != nil {
+	static, err := staticFiles(cfg.StaticDir)
+	if err != nil {
 		return err
 	}
 
-	// Serve
 	logger.Info("Server starting", zap.String("addr", cfg.Addr))
-	if err := http.ListenAndServe(cfg.Addr, mux); err != nil {
+	if err := http.ListenAndServe(cfg.Addr, appConfig.Routes(static)); err != nil {
 		return fmt.Errorf("serve on %s: %w", cfg.Addr, err)
 	}
 	return nil
-}
-
-// Move to router.go in the next iteration
-func NewRouter(appConfig *handler.AppContext) *http.ServeMux {
-	mux := http.NewServeMux()
-
-	// Error route
-	mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Not Found", http.StatusNotFound)
-	})
-
-	// Main routes
-	mux.HandleFunc("GET /", appConfig.MainPage)
-	mux.HandleFunc("GET /search", appConfig.ClusterSearchPage)
-	mux.HandleFunc("POST /blast", appConfig.BlastSearchPage)
-	mux.HandleFunc("GET /blast/{job_id}", appConfig.BlastStatusPage)
-	mux.HandleFunc("GET /cluster/table/{cluster_id}", appConfig.ClusterDetailPage) // Dedicated cluster table page.
-	mux.HandleFunc("GET /cluster/heatmap/{genome_id}/{contig_id}/{gene_id}", appConfig.ClusterHeatmapPage)
-	mux.HandleFunc("GET /redirect/blastn/", appConfig.BlastNRedirectPage)
-	mux.HandleFunc("GET /redirect/blastp/", appConfig.BlastPRedirectPage)
-
-	// API routes
-	// mux.HandleFunc("GET /api/v1/search", appConfig.ClusterSearchAPI)
-	mux.HandleFunc("GET /api/v1/health", handler.HealthCheck)
-	mux.HandleFunc("GET /api/v1/cluster/{cluster_id}", appConfig.ClusterDetailPage)
-
-	// Get sequences
-	mux.HandleFunc("GET /sequence/by-gene", appConfig.GetGeneSequenceHandler)
-	mux.HandleFunc("GET /sequence/by-region", appConfig.GetRegionSequenceHandler)
-	mux.HandleFunc("GET /sequence/by-cluster", appConfig.GetSequenceByClusterIDHandler)
-
-	return mux
 }
 
 // staticFS holds static/ compiled into the binary, so it runs from any directory.
@@ -174,32 +140,30 @@ func NewRouter(appConfig *handler.AppContext) *http.ServeMux {
 //go:embed static
 var staticFS embed.FS
 
-// setupStaticFiles serves /static/ from the embedded files, or from staticDir
-// on disk when set (to edit JS/CSS without rebuilding).
-func setupStaticFiles(mux *http.ServeMux, staticDir string) error {
+// staticFiles returns the files served at /static/: the embedded copy, or
+// staticDir on disk when set (to edit JS/CSS without rebuilding).
+func staticFiles(staticDir string) (fs.FS, error) {
+	// Some minimal containers lack /etc/mime.types; these must be right for browsers
+	// to run the scripts. An error here only means the type was already registered.
 	_ = mime.AddExtensionType(".js", "text/javascript")
 	_ = mime.AddExtensionType(".css", "text/css")
 
-	var files fs.FS
-	if staticDir != "" {
-		info, err := os.Stat(staticDir)
-		if err != nil {
-			return fmt.Errorf("cannot use static dir (omit -static to use embedded files): %w", err)
-		}
-		if !info.IsDir() {
-			return fmt.Errorf("static dir %q is not a directory (omit -static to use embedded files)", staticDir)
-		}
-		files = os.DirFS(staticDir)
-		logger.Info("Serving static files from disk", zap.String("dir", staticDir))
-	} else {
+	if staticDir == "" {
 		sub, err := fs.Sub(staticFS, "static")
 		if err != nil {
-			return fmt.Errorf("open embedded static files: %w", err)
+			return nil, fmt.Errorf("open embedded static files: %w", err)
 		}
-		files = sub
+		return sub, nil
 	}
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(files)))
-	return nil
+	info, err := os.Stat(staticDir)
+	if err != nil {
+		return nil, fmt.Errorf("cannot use static dir (omit -static to use embedded files): %w", err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("static dir %q is not a directory (omit -static to use embedded files)", staticDir)
+	}
+	logger.Info("Serving static files from disk", zap.String("dir", staticDir))
+	return os.DirFS(staticDir), nil
 }
 
 // small helper

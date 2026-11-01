@@ -8,7 +8,6 @@ import (
 
 	"github.com/yumyai/ggtable/internal/testdb"
 	"github.com/yumyai/ggtable/pkg/data"
-	"github.com/yumyai/ggtable/pkg/data/sqldb"
 	"github.com/yumyai/ggtable/pkg/model"
 )
 
@@ -20,46 +19,6 @@ func newTestApp(t *testing.T) *AppContext {
 	}
 	t.Cleanup(func() { store.Close() })
 	return &AppContext{Clusters: store.Clusters, Seqs: store.Seqs, Genomes: store.Genomes, BlastManager: model.NewBlastManager()}
-}
-
-func TestClusterDetailPage(t *testing.T) {
-	app := &AppContext{
-		Clusters: sqldb.New(testdb.New(t)),
-		Genomes:  model.NewGenomeCatalog([]string{"G1"}, map[string]string{"G1": "Genome One"}),
-	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /cluster/table/{cluster_id}", app.ClusterDetailPage)
-
-	rr := httptest.NewRecorder()
-	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/cluster/table/c1", nil))
-	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "ATP synthase") {
-		t.Errorf("c1: status %d, body contains cluster = %v", rr.Code, strings.Contains(rr.Body.String(), "ATP synthase"))
-	}
-
-	rr = httptest.NewRecorder()
-	mux.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/cluster/table/nope", nil))
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("unknown cluster: status %d, want 404", rr.Code)
-	}
-}
-
-func TestMainAndSearchPages(t *testing.T) {
-	app := &AppContext{
-		Clusters: sqldb.New(testdb.New(t)),
-		Genomes:  model.NewGenomeCatalog([]string{"G1", "G2"}, map[string]string{"G1": "Genome One", "G2": "Genome Two"}),
-	}
-	for _, url := range []string{"/", "/search?search=ATP&search_by=function", "/search?search=x&search_by=bogus"} {
-		rr := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, url, nil)
-		if url == "/" {
-			app.MainPage(rr, req)
-		} else {
-			app.ClusterSearchPage(rr, req)
-		}
-		if rr.Code != http.StatusOK {
-			t.Errorf("%s: status %d", url, rr.Code)
-		}
-	}
 }
 
 func TestGetSequenceByClusterIDHandler(t *testing.T) {

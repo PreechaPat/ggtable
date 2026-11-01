@@ -115,15 +115,15 @@ Most routes return HTML. The useful ones for linking from elsewhere or scripting
 | `POST /blast` | JSON `{"blast_type":"blastn"\|"blastp","sequence":"<fasta>"}`. With `Accept: application/json` it returns `202 {"job_id":...}`; poll `GET /blast/{job_id}` |
 | `GET /api/v1/health` | Health check |
 
-There is no JSON data API yet. The full route list is in `NewRouter` in `main.go`.
+There is no JSON data API yet. The full route list is in `pkg/handler/routes.go`.
 
 ## Changing the code
 
 Stack: Go `net/http` (no framework), pure-Go SQLite (`modernc.org/sqlite`, so `CGO_ENABLED=0` works), `zap` logging, server-rendered Go templates, a little jQuery.
 
 ```
-main.go         config, wiring, routes
-pkg/handler/    HTTP handlers: parse query → call data/model → render
+main.go         config, wiring, static files
+pkg/handler/    HTTP handlers and routes: parse query → call data/model → render
 pkg/model/      domain types and pure rules (no I/O): genome catalog, sequence IDs,
                 FASTA labelling, BLAST report rewriting, in-memory BLAST jobs
 pkg/data/       opens and checks the data directory (fixed layout, see above)
@@ -138,7 +138,7 @@ Common changes:
 
 - New search field: add a `ClusterField` and extend `ParseClusterField` in `pkg/model/search.go` and `whereExpr` / `orderByExpr` in `pkg/data/sqldb/search.go`, then add the option to the form in `pkg/render/render_ggtable.go`.
 - New heatmap colouring: write a `CellColorFunc` in `pkg/render/render_ggtable.go`, register it in `templateFuncMap`, and accept it in the handlers' `color_by` parsing.
-- New route: add a method on `*handler.AppContext` and register it in `NewRouter`.
+- New route: add a method on `*handler.AppContext` and register it in `Routes` (`pkg/handler/routes.go`).
 
 Build, test, release:
 

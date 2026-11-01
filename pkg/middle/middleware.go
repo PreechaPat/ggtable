@@ -1,3 +1,4 @@
+// Package middle holds HTTP middleware shared by all routes.
 package middle
 
 import (
@@ -5,60 +6,54 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yumyai/ggtable/logger"
 	"go.uber.org/zap"
 )
 
-// 1. A minimal wrapper just to capture the HTTP status code
+// RequestIDHeader carries the ID that ties a response to its log line.
+const RequestIDHeader = "X-Request-ID"
+
+// statusRecorder captures the status code a handler writes.
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
 }
 
-// WriteHeader intercepts the status code before sending it to the client
 func (r *statusRecorder) WriteHeader(status int) {
 	r.status = status
 	r.ResponseWriter.WriteHeader(status)
 }
 
-// 2. Logging Middleware
-func LoggingMiddleware(logger *zap.Logger) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
+// Unwrap lets http.ResponseController reach the underlying writer.
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
 
-			// Wrap the writer. We default to 200 OK just in case the handler
-			// doesn't explicitly call WriteHeader.
-			recorder := &statusRecorder{
-				ResponseWriter: w,
-				status:         http.StatusOK,
-			}
-
-			// Let the request pass down the chain to your actual handler
-			next.ServeHTTP(recorder, r)
-
-			// Log the result AFTER the handler has finished
-			logger.Info("HTTP Request",
-				zap.String("method", r.Method),
-				zap.String("path", r.URL.Path),
-				zap.Int("status", recorder.status),
-				zap.Duration("duration", time.Since(start)),
-			)
-		})
-	}
+// RequestID gives every response an X-Request-ID header.
+func RequestID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(RequestIDHeader, "req-"+uuid.New().String())
+		next.ServeHTTP(w, r)
+	})
 }
 
-// 3. Request ID Middleware
-func RequestIDMiddleware() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Generate a simple UUID
-			reqID := "req-" + uuid.New().String()
+// Logging logs one line per request after it is served. Health checks are
+// logged at debug level so the container healthcheck does not flood the log.
+func Logging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
 
-			// Set it in the header so the client/frontend can see it
-			w.Header().Set("X-Request-ID", reqID)
-
-			// Pass the request down the chain
-			next.ServeHTTP(w, r)
-		})
-	}
+		fields := []zap.Field{
+			zap.String("method", r.Method),
+			zap.String("path", r.URL.Path),
+			zap.Int("status", rec.status),
+			zap.Duration("duration", time.Since(start)),
+			zap.String("request_id", w.Header().Get(RequestIDHeader)),
+		}
+		if r.URL.Path == "/api/v1/health" {
+			logger.Debug("HTTP request", fields...)
+			return
+		}
+		logger.Info("HTTP request", fields...)
+	})
 }
