@@ -166,7 +166,7 @@ func getLongestGene(cluster *model.Cluster) *model.Gene {
 }
 
 // RenderClusterTablePage renders a detailed HTML table for a cluster.
-func RenderClusterTablePage(w io.Writer, cluster *model.Cluster) error {
+func RenderClusterTablePage(w io.Writer, genomes model.GenomeCatalog, cluster *model.Cluster) error {
 
 	logger.Info("Rendering cluster page on", zap.String("cluster-id", cluster.ClusterProperty.ClusterID))
 
@@ -196,7 +196,7 @@ func RenderClusterTablePage(w io.Writer, cluster *model.Cluster) error {
 	}{
 		Cluster:            cluster,
 		RepresentativeGene: rep_gene,
-		GenomeNames:        model.MAP_HEADER,
+		GenomeNames:        genomes.Names(),
 		TotalGenes:         totalGenes,
 		TotalRegions:       totalRegions,
 	}

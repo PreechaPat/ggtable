@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yumyai/ggtable/pkg/db"
+	"github.com/yumyai/ggtable/pkg/data/blastdb"
 	"github.com/yumyai/ggtable/pkg/model"
 )
 
@@ -72,18 +72,13 @@ func TestGetGeneSequenceHandler_MockBlastdbcmd(t *testing.T) {
 	restore := prependPath(t, tmp)
 	t.Cleanup(restore)
 
-	// Provide a small genome header map used by model.supplyFastaHeader
-	model.MAP_HEADER = map[string]string{"KCB09": "TestGenome"}
-
-	// Prepare handler context with a dummy SequenceDB
 	appConfig := &AppContext{
-		GCDB: &db.GeneClusterDB{
-			SeqDB: &db.SequenceDB{
-				ProtDB:   filepath.Join(tmp, "prot"),
-				NuclDB:   filepath.Join(tmp, "nucl"),
-				GenomeDB: filepath.Join(tmp, "genome"),
-			},
+		Seqs: &blastdb.DB{
+			ProtDB:   filepath.Join(tmp, "prot"),
+			NuclDB:   filepath.Join(tmp, "nucl"),
+			GenomeDB: filepath.Join(tmp, "genome"),
 		},
+		Genomes: model.NewGenomeCatalog([]string{"KCB09"}, map[string]string{"KCB09": "TestGenome"}),
 	}
 
 	// Build request
@@ -129,5 +124,23 @@ func TestGetRegionSequenceHandler_InvalidParams(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), "Invalid start value") {
 		t.Fatalf("expected error about start value, got %q", rr.Body.String())
+	}
+}
+
+func TestGetRegionSequenceHandler_NoLocation(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/sequence/by-region?genome_id=G&contig_id=C&start=0&end=0", nil)
+	rr := httptest.NewRecorder()
+	(&AppContext{}).GetRegionSequenceHandler(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for a region without location, got %d", rr.Code)
+	}
+}
+
+func TestGetGeneSequenceHandler_BadIsProt(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/sequence/by-gene?genome_id=G&contig_id=C&gene_id=g&is_prot=maybe", nil)
+	rr := httptest.NewRecorder()
+	(&AppContext{}).GetGeneSequenceHandler(rr, req) // must not reach the nil store
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
 	}
 }

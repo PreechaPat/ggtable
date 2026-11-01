@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/yumyai/ggtable/logger"
-	"github.com/yumyai/ggtable/pkg/db"
 	"github.com/yumyai/ggtable/pkg/model"
 	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
@@ -30,18 +31,14 @@ func (appConfig *AppContext) BlastSearchPage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if req.BlastType != "blastn" && req.BlastType != "blastp" {
-		http.Error(w, "Invalid BLAST type", http.StatusBadRequest)
-		return
-	}
-
-	if strings.TrimSpace(req.Sequence) == "" {
-		http.Error(w, "Sequence cannot be empty", http.StatusBadRequest)
+	query, err := req.Validate()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	job := appConfig.BlastManager.NewJob(req.BlastType)
-	go appConfig.runBlastJob(job.ID, req)
+	go appConfig.runBlastJob(job.ID, req.BlastType, query)
 
 	if prefersJSON(r) {
 		w.Header().Set("Content-Type", "application/json")
@@ -57,31 +54,31 @@ func (appConfig *AppContext) BlastSearchPage(w http.ResponseWriter, r *http.Requ
 	http.Redirect(w, r, "/blast/"+job.ID, http.StatusSeeOther)
 }
 
-func (appConfig *AppContext) runBlastJob(jobID string, req model.BlastSearchRequest) {
-
+// runBlastJob runs in its own goroutine, after the request has ended, so it
+// does not use the request context.
+func (appConfig *AppContext) runBlastJob(jobID, program, query string) {
 	appConfig.BlastManager.SetRunning(jobID)
 
-	var (
-		output string
-		err    error
-	)
-
-	switch req.BlastType {
-	case "blastn":
-		output, err = model.BLASTN(appConfig.NuclBLASTDB, req.Sequence)
-	case "blastp":
-		output, err = model.BLASTP(appConfig.ProtBLASTDB, req.Sequence)
-	default:
-		err = errors.New("unsupported BLAST type")
-	}
-
+	report, err := appConfig.Seqs.Search(context.Background(), program, query)
 	if err != nil {
 		logger.Error("BLAST job failed", zap.String("job_id", jobID), zap.Error(err))
-		appConfig.BlastManager.FailJob(jobID, err)
+		appConfig.BlastManager.FailJob(jobID, errors.New("BLAST failed; check the query is a valid "+queryKind(program)+" sequence"))
 		return
 	}
-
+	output, err := model.AnnotateBlastReport(bytes.NewReader(report), appConfig.Genomes)
+	if err != nil {
+		logger.Error("BLAST report rewrite failed", zap.String("job_id", jobID), zap.Error(err))
+		appConfig.BlastManager.FailJob(jobID, errors.New("could not read the BLAST report"))
+		return
+	}
 	appConfig.BlastManager.CompleteJob(jobID, output)
+}
+
+func queryKind(program string) string {
+	if program == "blastp" {
+		return "protein"
+	}
+	return "nucleotide"
 }
 
 func (appConfig *AppContext) BlastStatusPage(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +107,7 @@ func (appConfig *AppContext) BlastStatusPage(w http.ResponseWriter, r *http.Requ
 		BlastReport:            job.Result,
 		Status:                 string(job.Status),
 		ErrorMessage:           job.Error,
-		ShouldRefresh:          job.Status == db.BlastJobQueued || job.Status == db.BlastJobRunning,
+		ShouldRefresh:          job.Status == model.BlastJobQueued || job.Status == model.BlastJobRunning,
 		RefreshIntervalSeconds: 5,
 	}
 
@@ -147,20 +144,18 @@ func (appConfig *AppContext) BlastNRedirectPage(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Create region request
-	req := model.RegionGetRequest{
-		Genome_ID: genome_id,
-		Contig_ID: contig_id,
-		Start:     start_loc,
-		End:       end_loc,
-		Is_Prot:   false,
+	ref := model.RegionRef{GenomeID: genome_id, ContigID: contig_id, Start: start_loc, End: end_loc}
+	if err := ref.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
-
-	seq, errq := model.GetRegionSequence(appConfig.GCDB.SeqDB, req)
-
-	if errq != nil {
-		logger.Error("ERR")
+	fasta, err := appConfig.Seqs.Region(r.Context(), ref)
+	if err != nil {
+		logger.Warn("region sequence not found", zap.String("seq_id", ref.SeqID()), zap.String("range", ref.Range()), zap.Error(err))
+		http.Error(w, "Region sequence not found", http.StatusNotFound)
+		return
 	}
+	seq := model.LabelFasta(fasta, appConfig.Genomes)
 
 	baseURL := "https://blast.ncbi.nlm.nih.gov/Blast.cgi"
 	params := url.Values{}
@@ -186,18 +181,14 @@ func (appConfig *AppContext) BlastPRedirectPage(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	req := model.GeneGetRequest{
-		Genome_ID: genome_id,
-		Contig_ID: contig_id,
-		Gene_ID:   gene_id,
-		Is_Prot:   true,
+	ref := model.GeneRef{GenomeID: genome_id, ContigID: contig_id, GeneID: gene_id}
+	fasta, err := appConfig.Seqs.Gene(r.Context(), ref, true)
+	if err != nil {
+		logger.Warn("gene sequence not found", zap.String("seq_id", ref.SeqID()), zap.Error(err))
+		http.Error(w, "Gene sequence not found", http.StatusNotFound)
+		return
 	}
-
-	seq, errq := model.GetGeneSequence(appConfig.GCDB.SeqDB, req)
-
-	if errq != nil {
-		logger.Error("ERR")
-	}
+	seq := model.LabelFasta(fasta, appConfig.Genomes)
 
 	baseURL := "https://blast.ncbi.nlm.nih.gov/Blast.cgi"
 	params := url.Values{}

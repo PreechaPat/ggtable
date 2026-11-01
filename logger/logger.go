@@ -5,7 +5,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var zapLog *zap.Logger
+// zapLog discards everything until InitLogger runs, so packages can log in tests.
+var zapLog = zap.NewNop()
 
 func InitLogger(level zapcore.Level) error {
 

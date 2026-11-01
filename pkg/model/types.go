@@ -1,4 +1,14 @@
+// Package model holds the domain types and pure rules of the gene table.
+// It does no I/O: the SQLite and BLAST stores live in pkg/data and return these types.
 package model
+
+import (
+	"errors"
+	"sort"
+)
+
+// ErrNotFound is returned (wrapped) by stores when a requested record does not exist.
+var ErrNotFound = errors.New("not found")
 
 type Region struct {
 	GenomeID string `json:"genome_id"`
@@ -14,12 +24,12 @@ type Gene struct {
 	Description  string  `json:"description"`
 }
 
+// Genome holds one cluster's members in one genome.
 type Genome struct {
 	Genes   []*Gene   `json:"genes"`
 	Regions []*Region `json:"regions"`
 }
 
-// Sub struct, embed
 type ClusterProperty struct {
 	ClusterID           string `json:"cluster_id"`
 	CogID               string `json:"cog_id"`
@@ -33,15 +43,52 @@ type Cluster struct {
 	Genomes         map[string]*Genome `json:"genomes"`
 }
 
-// Return from query
-type ClusterQuery struct {
-	ClusterProperty  ClusterProperty
-	match            string
-	genome_id        string
-	contig_id        string
-	gene_id          string
-	completeness     float64
-	start_location   int
-	end_location     int
-	gene_description string
+// NewCluster returns a cluster with no members.
+func NewCluster(prop ClusterProperty) *Cluster {
+	return &Cluster{ClusterProperty: prop, Genomes: map[string]*Genome{}}
+}
+
+// Genome returns the cluster's entry for genomeID, creating it if needed.
+func (c *Cluster) Genome(genomeID string) *Genome {
+	g, ok := c.Genomes[genomeID]
+	if !ok {
+		g = &Genome{Genes: []*Gene{}, Regions: []*Region{}}
+		c.Genomes[genomeID] = g
+	}
+	return g
+}
+
+// GeneRefs lists the sequence IDs of every gene in the cluster, ordered by genome ID.
+func (c *Cluster) GeneRefs() []GeneRef {
+	var refs []GeneRef
+	for _, id := range c.sortedGenomeIDs() {
+		for _, g := range c.Genomes[id].Genes {
+			refs = append(refs, GeneRef{GenomeID: g.Region.GenomeID, ContigID: g.Region.ContigID, GeneID: g.GeneID})
+		}
+	}
+	return refs
+}
+
+// RegionRefs lists every region in the cluster that has a location, ordered by genome ID.
+// Regions without a location (start and end 0, allowed by the legacy format) are skipped.
+func (c *Cluster) RegionRefs() []RegionRef {
+	var refs []RegionRef
+	for _, id := range c.sortedGenomeIDs() {
+		for _, r := range c.Genomes[id].Regions {
+			if r.Start == 0 && r.End == 0 {
+				continue
+			}
+			refs = append(refs, RegionRef{GenomeID: r.GenomeID, ContigID: r.ContigID, Start: uint64(r.Start), End: uint64(r.End)})
+		}
+	}
+	return refs
+}
+
+func (c *Cluster) sortedGenomeIDs() []string {
+	ids := make([]string, 0, len(c.Genomes))
+	for id := range c.Genomes {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
 }

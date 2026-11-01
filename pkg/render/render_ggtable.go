@@ -464,9 +464,9 @@ type clusterHeatmapPageData struct {
 	ColorBy           string
 }
 
-func buildClusterHeatmapPageData(site SiteInfo, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) clusterHeatmapPageData {
-	genomeIDAll := model.ALL_GENOME_ID
-	genomeMapAll := model.MAP_HEADER
+func buildClusterHeatmapPageData(site SiteInfo, genomes model.GenomeCatalog, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) clusterHeatmapPageData {
+	genomeIDAll := genomes.IDs()
+	genomeMapAll := genomes.Names()
 	header := searchRequest.Genome_IDs
 	currentPage := searchRequest.Page
 	pageSize := searchRequest.Page_Size
@@ -517,7 +517,7 @@ func buildClusterHeatmapPageData(site SiteInfo, rows []*model.Cluster, searchReq
 }
 
 // RenderClusterHeatmapPage renders the search heatmap table view for one or more clusters.
-func RenderClusterHeatmapPage(w io.Writer, site SiteInfo, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) error {
-	data := buildClusterHeatmapPageData(site, rows, searchRequest, totalPage)
+func RenderClusterHeatmapPage(w io.Writer, site SiteInfo, genomes model.GenomeCatalog, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) error {
+	data := buildClusterHeatmapPageData(site, genomes, rows, searchRequest, totalPage)
 	return searchPageTemplate.Execute(w, data)
 }

@@ -2,19 +2,18 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/yumyai/ggtable/logger"
 	"github.com/yumyai/ggtable/pkg/model"
+	"go.uber.org/zap"
 )
 
-// Response struct to hold the payload and page number
-type SequencePayload struct {
-	Sequence interface{} `json:"sequence"`
-}
-
+// SequenceReponse is the JSON error body of /sequence/by-cluster.
 type SequenceReponse struct {
 	Status          string `json:"success"`
 	SequencePayload string `json:"payload"`
@@ -22,178 +21,101 @@ type SequenceReponse struct {
 }
 
 func (appConfig *AppContext) GetGeneSequenceHandler(w http.ResponseWriter, r *http.Request) {
-
-	genome_id := r.URL.Query().Get("genome_id")
-	contig_id := r.URL.Query().Get("contig_id")
-	gene_id := r.URL.Query().Get("gene_id")
-	is_prot_str := r.URL.Query().Get("is_prot")
-	is_prot, err := strconv.ParseBool(is_prot_str)
-
+	q := r.URL.Query()
+	isProt, err := strconv.ParseBool(q.Get("is_prot"))
 	if err != nil {
 		http.Error(w, "is_prot need to be bool-like string", http.StatusBadRequest)
+		return
 	}
+	ref := model.GeneRef{GenomeID: q.Get("genome_id"), ContigID: q.Get("contig_id"), GeneID: q.Get("gene_id")}
 
-	genome_gene_param := model.GeneGetRequest{
-		Genome_ID: genome_id,
-		Contig_ID: contig_id,
-		Gene_ID:   gene_id,
-		Is_Prot:   is_prot,
-	}
-
-	respons, err := model.GetGeneSequence(appConfig.GCDB.SeqDB, genome_gene_param)
-
+	fasta, err := appConfig.Seqs.Gene(r.Context(), ref, isProt)
 	if err != nil {
+		logger.Warn("gene sequence not found", zap.String("seq_id", ref.SeqID()), zap.Error(err))
 		http.Error(w, "Not found (maybe sequence database isn't available?)", http.StatusBadRequest)
-
-	} else {
-		fmt.Fprint(w, respons)
+		return
 	}
+	fmt.Fprint(w, model.LabelFasta(fasta, appConfig.Genomes))
 }
 
 func (appConfig *AppContext) GetRegionSequenceHandler(w http.ResponseWriter, r *http.Request) {
-
-	genome_id := r.URL.Query().Get("genome_id")
-	contig_id := r.URL.Query().Get("contig_id")
-	start, err_start := strconv.ParseUint(r.URL.Query().Get("start"), 10, 64)
-	end, err_end := strconv.ParseUint(r.URL.Query().Get("end"), 10, 64)
+	q := r.URL.Query()
+	start, errStart := strconv.ParseUint(q.Get("start"), 10, 64)
+	end, errEnd := strconv.ParseUint(q.Get("end"), 10, 64)
 
 	var errorMessages []string
-
-	if err_start != nil {
+	if errStart != nil {
 		errorMessages = append(errorMessages, "Invalid start value")
 	}
-	if err_end != nil {
+	if errEnd != nil {
 		errorMessages = append(errorMessages, "Invalid end value")
 	}
-
 	if len(errorMessages) > 0 {
-		// Join all error messages into a single response
 		http.Error(w, strings.Join(errorMessages, "; "), http.StatusBadRequest)
 		return
 	}
-
-	region_gene_param := model.RegionGetRequest{
-		Genome_ID: genome_id,
-		Contig_ID: contig_id,
-		Start:     uint64(start),
-		End:       uint64(end),
-		Is_Prot:   false,
+	ref := model.RegionRef{GenomeID: q.Get("genome_id"), ContigID: q.Get("contig_id"), Start: start, End: end}
+	if err := ref.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
-	respons, err := model.GetRegionSequence(appConfig.GCDB.SeqDB, region_gene_param)
-
+	fasta, err := appConfig.Seqs.Region(r.Context(), ref)
 	if err != nil {
-		http.Error(w, "No", http.StatusBadRequest)
-
-	} else {
-		fmt.Fprint(w, respons)
+		logger.Warn("region sequence not found", zap.String("seq_id", ref.SeqID()), zap.String("range", ref.Range()), zap.Error(err))
+		http.Error(w, "Region not found (maybe sequence database isn't available?)", http.StatusBadRequest)
+		return
 	}
+	fmt.Fprint(w, model.LabelFasta(fasta, appConfig.Genomes))
 }
 
+// GetSequenceByClusterIDHandler returns the FASTA of every gene in a cluster,
+// plus, for nucleotides, every region.
 func (appConfig *AppContext) GetSequenceByClusterIDHandler(w http.ResponseWriter, r *http.Request) {
-
-	cluster_id := r.URL.Query().Get("cluster_id")
-	is_prot_str := r.URL.Query().Get("is_prot")
-	is_prot, errgenome := strconv.ParseBool(is_prot_str)
-
-	if errgenome != nil {
+	q := r.URL.Query()
+	clusterID := q.Get("cluster_id")
+	isProt, err := strconv.ParseBool(q.Get("is_prot"))
+	if err != nil {
 		http.Error(w, "is_prot need to be bool-like string", http.StatusBadRequest)
-	}
-
-	// Get cluster info
-	cluster_info, errgenome := model.GetCluster(appConfig.GCDB.SQL, cluster_id)
-
-	if errgenome != nil {
-		// Build error string
-		response := SequenceReponse{
-			Status:          "error",
-			SequencePayload: "",
-			Error:           errgenome.Error(),
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(response)
 		return
 	}
 
-	// Build request
-	gene_request := make([]*model.GeneGetRequest, 0, 20)
-	// is_prot doesn't use here.
-	for _, genome := range cluster_info.Genomes {
-		for _, gene := range genome.Genes {
-			req := &model.GeneGetRequest{
-				Genome_ID: gene.Region.GenomeID,
-				Contig_ID: gene.Region.ContigID,
-				Gene_ID:   gene.GeneID,
-				Is_Prot:   is_prot,
-			}
-			gene_request = append(gene_request, req)
+	cluster, err := appConfig.Clusters.Cluster(r.Context(), clusterID)
+	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			writeSequenceError(w, fmt.Sprintf("cluster %q not found", clusterID))
+			return
 		}
-	}
-
-	gene, gene_err := model.GetMultipleGenes(appConfig.GCDB.SeqDB, gene_request, is_prot)
-
-	var region string
-	var region_err error
-
-	// Only call this if it is not protein
-	if !is_prot {
-		region_request := make([]*model.RegionGetRequest, 0, 50)
-
-		// is_prot doesn't get used here.
-		for _, genome := range cluster_info.Genomes {
-			for _, region := range genome.Regions {
-				// TODO: Some region doesn't have define location, filter that out
-				req := &model.RegionGetRequest{
-					Genome_ID: region.GenomeID,
-					Contig_ID: region.ContigID,
-					Start:     uint64(region.Start),
-					End:       uint64(region.End),
-					Is_Prot:   is_prot,
-				}
-				region_request = append(region_request, req)
-			}
-		}
-
-		// Quick catch if region exists
-		if len(region_request) == 0 {
-			region = ""
-			region_err = nil
-		} else {
-			region, region_err = model.GetMultipleRegions(appConfig.GCDB.SeqDB, region_request)
-		}
-	}
-
-	// Handle error
-	if gene_err != nil || region_err != nil {
-
-		var erroMessg string
-		erroMessg += ""
-
-		if gene_err != nil {
-			erroMessg += gene_err.Error()
-		}
-		if region_err != nil {
-			erroMessg += region_err.Error()
-		}
-
-		response := SequenceReponse{
-			Status:          "error",
-			SequencePayload: "",
-			Error:           erroMessg,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(response)
+		logger.Error("failed to load cluster", zap.String("cluster_id", clusterID), zap.Error(err))
+		writeSequenceError(w, "failed to load cluster")
 		return
 	}
 
-	// Search sequence
-	fmt.Fprint(w, gene)
+	genes, err := appConfig.Seqs.Genes(r.Context(), cluster.GeneRefs(), isProt)
+	if err != nil {
+		logger.Error("failed to fetch cluster genes", zap.String("cluster_id", clusterID), zap.Error(err))
+		writeSequenceError(w, "failed to fetch gene sequences")
+		return
+	}
+	var regions []byte
+	if !isProt {
+		regions, err = appConfig.Seqs.Regions(r.Context(), cluster.RegionRefs())
+		if err != nil {
+			logger.Error("failed to fetch cluster regions", zap.String("cluster_id", clusterID), zap.Error(err))
+			writeSequenceError(w, "failed to fetch region sequences")
+			return
+		}
+	}
 
-	if !is_prot {
-		fmt.Fprint(w, region)
+	fmt.Fprint(w, model.LabelFasta(genes, appConfig.Genomes))
+	fmt.Fprint(w, model.LabelFasta(regions, appConfig.Genomes))
+}
+
+// writeSequenceError sends msg as JSON; details stay in the server log.
+func writeSequenceError(w http.ResponseWriter, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+	if encErr := json.NewEncoder(w).Encode(SequenceReponse{Status: "error", Error: msg}); encErr != nil {
+		logger.Error("failed to encode sequence error", zap.Error(encErr))
 	}
 }

@@ -122,17 +122,21 @@ There is no JSON data API yet. The full route list is in `NewRouter` in `main.go
 Stack: Go `net/http` (no framework), pure-Go SQLite (`modernc.org/sqlite`, so `CGO_ENABLED=0` works), `zap` logging, server-rendered Go templates, a little jQuery.
 
 ```
-main.go         config, DB wiring, routes
-pkg/handler/    HTTP handlers: parse query → call model → render
-pkg/model/      SQL queries, domain types, BLAST execution and output rewriting
-pkg/db/         DB + blastdbcmd wrappers, in-memory BLAST job manager
+main.go         config, wiring, routes
+pkg/handler/    HTTP handlers: parse query → call data/model → render
+pkg/model/      domain types and pure rules (no I/O): genome catalog, sequence IDs,
+                FASTA labelling, BLAST report rewriting, in-memory BLAST jobs
+pkg/data/       opens and checks the data directory (fixed layout, see above)
+  sqldb/        SQLite queries: clusters, search, genomes
+  blastdb/      BLAST+ wrappers: blastdbcmd sequence fetch, blastn/blastp search
 pkg/render/     HTML templates (Go string constants), heatmap colours
+internal/testdb/ small SQLite + BLAST fixtures for tests
 static/         JS/CSS served at /static/, embedded into the binary
 ```
 
 Common changes:
 
-- New search field: add a `ClusterField` and extend `ParseClusterField`, `whereFilterExpr`, and `orderByExpr` in `pkg/model/search.go`, then add the option to the form in `pkg/render/render_ggtable.go`.
+- New search field: add a `ClusterField` and extend `ParseClusterField` in `pkg/model/search.go` and `whereExpr` / `orderByExpr` in `pkg/data/sqldb/search.go`, then add the option to the form in `pkg/render/render_ggtable.go`.
 - New heatmap colouring: write a `CellColorFunc` in `pkg/render/render_ggtable.go`, register it in `templateFuncMap`, and accept it in the handlers' `color_by` parsing.
 - New route: add a method on `*handler.AppContext` and register it in `NewRouter`.
 
@@ -149,7 +153,9 @@ The dev container (`.devcontainer/`, `docker-compose.yml`) expects the data dire
 
 `publish-image.sh` refuses to run with uncommitted changes and needs a `gh` token with `write:packages`. The version is compiled into the binary and printed in the startup log.
 
-Known issue: tests in `pkg/db` and `pkg/model` fail without BLAST+ on `PATH` and the gitignored fixtures in `test_data/`, and those fixtures still use the old `|` separator.
+Tests build their own small fixtures (`internal/testdb`). Tests that touch the BLAST databases need BLAST+ on `PATH` (e.g. `conda activate bio`) and skip without it.
+
+At startup `pkg/data` checks the data directory (layout, SQLite tables and columns, BLAST indexes, and that one gene from `gene_matches` can be fetched from the BLAST DBs) and exits with the reason if anything is off.
 
 ## Contributing, license, contact
 

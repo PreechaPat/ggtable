@@ -1,4 +1,4 @@
-package db
+package model
 
 import (
 	"crypto/rand"
@@ -96,12 +96,15 @@ func (m *BlastManager) FailJob(jobID string, err error) {
 	})
 }
 
-// GetJob fetches a job by ID.
-func (m *BlastManager) GetJob(jobID string) (*BlastJob, bool) {
+// GetJob returns a snapshot of a job, safe to read while the job keeps running.
+func (m *BlastManager) GetJob(jobID string) (BlastJob, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	job, ok := m.jobs[jobID]
-	return job, ok
+	if !ok {
+		return BlastJob{}, false
+	}
+	return *job, true
 }
 
 func (m *BlastManager) updateJob(jobID string, update func(job *BlastJob)) {

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -25,23 +24,15 @@ func (appConfig *AppContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	genome_gene_param := model.GeneGetRequest{
-		Genome_ID: genome,
-		Contig_ID: contig,
-		Gene_ID:   gene,
-	}
-
 	logger.Debug("Searching for",
 		zap.String("genome", genome),
 		zap.String("contig", contig),
 		zap.String("gene", gene),
 	)
 
-	cluster_ids, err := model.GetClusterID(appConfig.GCDB.SQL, genome_gene_param)
-
-	// Check for all possible errors
+	cluster_ids, err := appConfig.Clusters.ClusterIDsForGene(r.Context(), genome, gene)
 	if err != nil {
-		// Cluster not found
+		logger.Error("failed to find cluster of gene", zap.String("genome", genome), zap.String("gene", gene), zap.Error(err))
 		fmt.Fprint(w, "ERROR")
 		return
 	} else if len(cluster_ids) != 1 {
@@ -49,10 +40,9 @@ func (appConfig *AppContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	cluster_prob, err2 := model.GetCluster(appConfig.GCDB.SQL, cluster_ids[0])
-
-	// Should be possible, massive error
+	cluster_prob, err2 := appConfig.Clusters.Cluster(r.Context(), cluster_ids[0])
 	if err2 != nil {
+		logger.Error("failed to load cluster", zap.String("cluster_id", cluster_ids[0]), zap.Error(err2))
 		fmt.Fprint(w, "ERROR")
 		return
 	}
@@ -78,7 +68,7 @@ func (appConfig *AppContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.R
 		}
 	}
 	if len(includeGenome) == 0 {
-		includeGenome = model.ALL_GENOME_ID
+		includeGenome = appConfig.Genomes.IDs()
 	}
 
 	var search_request = model.ClusterSearchRequest{
@@ -92,7 +82,7 @@ func (appConfig *AppContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.R
 		// RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 
-	err3 := render.RenderClusterStandaloneHeatmapPage(w, appConfig.Site, []*model.Cluster{cluster_prob}, search_request, 1)
+	err3 := render.RenderClusterStandaloneHeatmapPage(w, appConfig.Site, appConfig.Genomes, []*model.Cluster{cluster_prob}, search_request, 1)
 
 	if err3 != nil {
 		fmt.Fprint(w, "ERROR")
@@ -105,8 +95,8 @@ func (appConfig *AppContext) ClusterDetailPage(w http.ResponseWriter, r *http.Re
 
 	cluster_id := r.PathValue("cluster_id")
 
-	res, err := model.GetCluster(appConfig.GCDB.SQL, cluster_id)
-	if errors.Is(err, sql.ErrNoRows) {
+	res, err := appConfig.Clusters.Cluster(r.Context(), cluster_id)
+	if errors.Is(err, model.ErrNotFound) {
 		http.Error(w, fmt.Sprintf("Cluster %q not found", cluster_id), http.StatusNotFound)
 		return
 	}
@@ -118,7 +108,7 @@ func (appConfig *AppContext) ClusterDetailPage(w http.ResponseWriter, r *http.Re
 
 	// The template streams straight to w, so a status can't be changed once it
 	// has started writing; log the failure instead.
-	if err := render.RenderClusterTablePage(w, res); err != nil {
+	if err := render.RenderClusterTablePage(w, appConfig.Genomes, res); err != nil {
 		logger.Error("failed to render cluster table", zap.String("cluster_id", cluster_id), zap.Error(err))
 	}
 }

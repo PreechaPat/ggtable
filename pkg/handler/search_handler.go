@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/yumyai/ggtable/logger"
+	"github.com/yumyai/ggtable/pkg/data/sqldb"
 	"github.com/yumyai/ggtable/pkg/model"
 	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
@@ -133,12 +135,24 @@ func (appConfig *AppContext) ClusterSearchPage(w http.ResponseWriter, r *http.Re
 		// RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 
-	rows, _ := model.SearchGeneCluster(appConfig.GCDB.SQL, search_request)
-	rowNum, _ := model.CountSearchRow(appConfig.GCDB.SQL, search_request)
+	// A failed search still renders the page (with no rows), so the user can
+	// fix the query; only database failures are logged as errors.
+	rows, err := appConfig.Clusters.Search(r.Context(), search_request)
+	rowNum := 0
+	if err == nil {
+		rowNum, err = appConfig.Clusters.CountSearch(r.Context(), search_request)
+	}
+	if errors.Is(err, sqldb.ErrInvalidSearch) {
+		logger.Debug("invalid search", zap.Error(err))
+		rows = nil
+	} else if err != nil {
+		logger.Error("search failed", zap.Any("search_request", search_request), zap.Error(err))
+		rows = nil
+	}
 
 	totalPageNum := (rowNum + pageSize - 1) / pageSize // Rounding up
 
-	err := render.RenderClusterHeatmapPage(w, appConfig.Site, rows, search_request, totalPageNum)
+	err = render.RenderClusterHeatmapPage(w, appConfig.Site, appConfig.Genomes, rows, search_request, totalPageNum)
 
 	if err != nil {
 		logger.Error(err.Error())
@@ -188,11 +202,11 @@ func (appConfig *AppContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		Order_Dir:    orderDir,
 		Page:         pageNum,
 		Page_Size:    PAGE_SIZE,
-		Genome_IDs:   model.ALL_GENOME_ID, // Default to all genomes
+		Genome_IDs:   appConfig.Genomes.IDs(), // Default to all genomes
 		Color_By:     colorBy,
 	}
 
-	rows, err := model.GetMainPage(appConfig.GCDB.SQL, search_request) // Capture the error here
+	rows, err := appConfig.Clusters.MainPage(r.Context(), search_request)
 	if err != nil {
 		logger.Error("Failed to get main page data from model",
 			zap.String("url", r.URL.Path),
@@ -202,9 +216,7 @@ func (appConfig *AppContext) MainPage(w http.ResponseWriter, r *http.Request) {
 		return // Important: stop execution after sending error
 	}
 
-	rowNum, err := model.CountAllRow(appConfig.GCDB.SQL)
-
-	// rowNum, err := model.CountRowByQuery(, ) // Capture the error here
+	rowNum, err := appConfig.Clusters.CountClusters(r.Context())
 	if err != nil {
 		logger.Error("Failed to count rows by query",
 			zap.String("url", r.URL.Path),
@@ -216,7 +228,7 @@ func (appConfig *AppContext) MainPage(w http.ResponseWriter, r *http.Request) {
 
 	totalPageNum := (rowNum + PAGE_SIZE - 1) / PAGE_SIZE // To round it up instead
 
-	err = render.RenderClusterHeatmapPage(w, appConfig.Site, rows, search_request, totalPageNum)
+	err = render.RenderClusterHeatmapPage(w, appConfig.Site, appConfig.Genomes, rows, search_request, totalPageNum)
 
 	if err != nil {
 		logger.Error(err.Error()) // Already logging the error message

@@ -2,206 +2,146 @@ package model
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"html"
 	"io"
 	"net/url"
-	"os/exec"
 	"regexp"
 	"strings"
 )
 
-// BlastSearchRequest represents a BLAST request.
+// BlastSearchRequest is a BLAST form submission.
 type BlastSearchRequest struct {
-	BlastType string `json:"blast_type"`
-	Sequence  string `json:"sequence"`
+	BlastType string `json:"blast_type"` // blastn or blastp
+	Sequence  string `json:"sequence"`   // FASTA or bare sequence
 }
 
-// cleanFasta validates and cleans the input FASTA string.
-func cleanFasta(inputFasta string) (string, error) {
-	cleaned := strings.TrimSpace(inputFasta)
-	if cleaned == "" {
-		return "", errors.New("input FASTA string is empty")
+// Validate checks the program and returns the cleaned query FASTA.
+func (r BlastSearchRequest) Validate() (string, error) {
+	if r.BlastType != "blastn" && r.BlastType != "blastp" {
+		return "", fmt.Errorf("invalid BLAST type %q: use blastn or blastp", r.BlastType)
 	}
+	return CleanFasta(r.Sequence)
+}
 
-	lines := strings.Split(cleaned, "\n")
-	var validLines []string
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			validLines = append(validLines, trimmed)
+// CleanFasta trims the input and drops blank lines.
+func CleanFasta(input string) (string, error) {
+	var lines []string
+	for _, line := range strings.Split(input, "\n") {
+		if t := strings.TrimSpace(line); t != "" {
+			lines = append(lines, t)
 		}
 	}
-
-	return strings.Join(validLines, "\n"), nil
-}
-
-// runBLASTCommand executes a BLAST command with the given parameters and input FASTA.
-func runBLASTCommand(cmdName, db string, inputFasta string) (string, error) {
-	cleanedFasta, err := cleanFasta(inputFasta)
-	if err != nil {
-		return "", fmt.Errorf("failed to clean FASTA: %w", err)
+	if len(lines) == 0 {
+		return "", errors.New("sequence is empty")
 	}
-
-	// Shows 500 alignments, that should be enough. Also, max_seq is already at 500
-	cmd := exec.Command(cmdName, "-db", db, "-html", "-num_descriptions", "500", "-num_alignments", "500")
-	cmd.Stdin = bytes.NewBufferString(cleanedFasta)
-
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to execute %s: %w", cmdName, err)
-	}
-
-	result, err := parseAndAddLink(&out)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse BLAST output: %w", err)
-	}
-
-	return result.String(), nil
+	return strings.Join(lines, "\n"), nil
 }
 
-// BLASTP runs a BLASTP search and returns the processed output.
-func BLASTP(AADB, inputFasta string) (string, error) {
-	return runBLASTCommand("blastp", AADB, inputFasta)
-}
-
-// BLASTN runs a BLASTN search and returns the processed output.
-func BLASTN(NCDB, inputFasta string) (string, error) {
-	return runBLASTCommand("blastn", NCDB, inputFasta)
-}
-
-// Define the states for our parser
-type ParseState int
-
-const (
-	StateHeader ParseState = iota
-	StateTOC
-	StateAlignments
-	StateFooter
+var (
+	escSep = regexp.QuoteMeta(SeqIDSep)
+	// TOC line: "GENOME//CONTIG//GENE   score  evalue"
+	blastTOCRegex = regexp.MustCompile(fmt.Sprintf(`^(\S+)%s(\S+)%s(\S+)`, escSep, escSep))
+	// Alignment header, BLAST 2.17 with a -parse_seqids DB:
+	//   >GENOME//CONTIG//GENE<a name=GENOME//CONTIG//GENE></a> unnamed protein product
+	// Groups: genome, contig, gene, rest (anchor + title, kept so the TOC "#ID" jump still works).
+	blastAlignRegex = regexp.MustCompile(fmt.Sprintf(`^>([^\s<]+?)%s([^\s<]+?)%s([^\s<]+?)(<a name=[^>]*></a>.*)$`, escSep, escSep))
+	multiSpace      = regexp.MustCompile(`\s{2,}`)
 )
 
-func parseAndAddLink(htmlContent *bytes.Buffer) (*bytes.Buffer, error) {
-	var output bytes.Buffer
-	reader := bufio.NewReader(htmlContent)
+type blastParseState int
 
-	// 1. Define your separator here
-	sep := "//"
-	// Escape the separator for use in Regex (crucial if you use characters like '.', '*', or '|')
-	escSep := regexp.QuoteMeta(sep)
+const (
+	stateHeader blastParseState = iota
+	stateTOC
+	stateAlignments
+	stateFooter
+)
 
-	genomeid_lookup := MAP_HEADER
-
-	// 2. Dynamic Regex construction using the separator
-	// tocRegex: captures genomeID, contig, and gene separated by your delimiter
-	tocRegex := regexp.MustCompile(fmt.Sprintf(`^(\S+)%s(\S+)%s(\S+)`, escSep, escSep))
-
-	// alignHeaderRegex: BLAST 2.17 with a -parse_seqids DB prints the ID first, then its anchor, then the title:
-	//   >GENOME//CONTIG//GENE<a name=GENOME//CONTIG//GENE></a> unnamed protein product
-	// Groups: genomeID, contig, gene, rest (anchor + title, kept so the TOC "#ID" jump still works).
-	alignHeaderRegex := regexp.MustCompile(fmt.Sprintf(`^>([^\s<]+?)%s([^\s<]+?)%s([^\s<]+?)(<a name=[^>]*></a>.*)$`, escSep, escSep))
-
-	spaceDetection := regexp.MustCompile(`\s{2,}`)
-
-	state := StateHeader
+// AnnotateBlastReport rewrites a BLAST -html report for display: hit IDs get
+// the genome's full name, and each alignment gets a link to its cluster.
+func AnnotateBlastReport(report io.Reader, genomes GenomeCatalog) (string, error) {
+	var out strings.Builder
+	reader := bufio.NewReader(report)
+	state := stateHeader
 
 	for {
-		line, err := reader.ReadString('\n')
+		raw, err := reader.ReadString('\n')
 		if err != nil && err != io.EOF {
-			return nil, err
+			return "", fmt.Errorf("read BLAST report: %w", err)
 		}
-
-		cleanLine := strings.TrimSuffix(line, "\n")
+		if raw == "" && err == io.EOF {
+			break
+		}
+		line := strings.TrimSuffix(raw, "\n")
+		trimmed := strings.TrimSpace(line)
 
 		switch state {
-		case StateHeader:
-			if fields := strings.Fields(cleanLine); len(fields) == 2 && fields[0] == "Score" && fields[1] == "E" {
-				newline := fmt.Sprintf("%-90s %-10s %-5s", " ", "Score", "E")
-				output.WriteString(newline + "\n")
-			} else if strings.HasPrefix(cleanLine, "Sequences producing significant alignments:") {
-				state = StateTOC
-				newline := fmt.Sprintf("%-90s %-10s %-5s", "Sequences producing significant alignments:", "(Bits)", "Value")
-				output.WriteString(newline + "\n")
-			} else {
-				output.WriteString(cleanLine + "\n")
+		case stateHeader:
+			if f := strings.Fields(line); len(f) == 2 && f[0] == "Score" && f[1] == "E" {
+				line = fmt.Sprintf("%-90s %-10s %-5s", " ", "Score", "E")
+			} else if strings.HasPrefix(line, "Sequences producing significant alignments:") {
+				state = stateTOC
+				line = fmt.Sprintf("%-90s %-10s %-5s", "Sequences producing significant alignments:", "(Bits)", "Value")
 			}
-
-		case StateTOC:
-			if strings.HasPrefix(strings.TrimSpace(cleanLine), ">") {
-				state = StateAlignments
-				// Pass the separator to the helper
-				processAlignmentLine(&output, cleanLine, alignHeaderRegex, genomeid_lookup, sep)
+		case stateTOC:
+			if strings.HasPrefix(trimmed, ">") {
+				state = stateAlignments
+				line = annotateAlignmentHeader(line, genomes)
 			} else {
-				matches := tocRegex.FindStringSubmatch(cleanLine)
-				if len(matches) == 4 {
-					genomeID, contig, gene := matches[1], matches[2], matches[3]
-
-					if genomeName, ok := genomeid_lookup[genomeID]; ok {
-						// 3. Reconstruct using the variable
-						replacement := fmt.Sprintf("%s-%s%s%s%s%s", html.EscapeString(genomeName), genomeID, sep, contig, sep, gene)
-						parts := spaceDetection.Split(cleanLine, 3)
-
-						if len(parts) >= 3 {
-							newline := fmt.Sprintf("%-90s %-10s %-5s", replacement, parts[1], parts[2])
-							output.WriteString(newline + "\n")
-							continue
-						}
-					}
-				}
-				output.WriteString(cleanLine + "\n")
+				line = annotateTOCLine(line, genomes)
 			}
-
-		case StateAlignments:
-			if strings.HasPrefix(cleanLine, "  Database:") || strings.HasPrefix(strings.TrimSpace(cleanLine), "Lambda") {
-				state = StateFooter
-				output.WriteString(cleanLine + "\n")
-			} else if strings.HasPrefix(strings.TrimSpace(cleanLine), ">") {
-				processAlignmentLine(&output, cleanLine, alignHeaderRegex, genomeid_lookup, sep)
-			} else {
-				output.WriteString(cleanLine + "\n")
+		case stateAlignments:
+			if strings.HasPrefix(line, "  Database:") || strings.HasPrefix(trimmed, "Lambda") {
+				state = stateFooter
+			} else if strings.HasPrefix(trimmed, ">") {
+				line = annotateAlignmentHeader(line, genomes)
 			}
-
-		case StateFooter:
+		case stateFooter:
 			// Multi-query input: each query repeats Query=/TOC/alignments/stats, so start over.
-			if strings.HasPrefix(cleanLine, "<b>Query=</b>") {
-				state = StateHeader
+			if strings.HasPrefix(line, "<b>Query=</b>") {
+				state = stateHeader
 			}
-			output.WriteString(cleanLine + "\n")
 		}
+		out.WriteString(line + "\n")
 
 		if err == io.EOF {
 			break
 		}
 	}
-
-	return &output, nil
+	return out.String(), nil
 }
 
-// Added sep string parameter here
-func processAlignmentLine(output *bytes.Buffer, line string, regex *regexp.Regexp, lookup map[string]string, sep string) {
-	matches := regex.FindStringSubmatch(line)
-	if len(matches) == 5 {
-		genomeID := matches[1]
-		contig := matches[2]
-		gene := matches[3]
-		rest := matches[4] // <a name=ID></a> + title
-
-		if genomeName, ok := lookup[genomeID]; ok {
-			// 4. Use variable for reconstruction
-			replacement := fmt.Sprintf(">%s-%s%s%s%s%s", html.EscapeString(genomeName), genomeID, sep, contig, sep, gene)
-			link := fmt.Sprintf("/cluster/heatmap/%s/%s/%s",
-				url.PathEscape(genomeID),
-				url.PathEscape(contig),
-				url.PathEscape(gene),
-			)
-			linkHTML := fmt.Sprintf("<a href=\"%s\">View in gene table</a>", link)
-
-			output.WriteString(fmt.Sprintf("%s%s %s\n", replacement, rest, linkHTML))
-			return
-		}
+func annotateTOCLine(line string, genomes GenomeCatalog) string {
+	m := blastTOCRegex.FindStringSubmatch(line)
+	if len(m) != 4 {
+		return line
 	}
-	output.WriteString(line + "\n")
+	name, ok := genomes.Name(m[1])
+	if !ok {
+		return line
+	}
+	parts := multiSpace.Split(line, 3)
+	if len(parts) < 3 {
+		return line
+	}
+	id := GeneRef{GenomeID: m[1], ContigID: m[2], GeneID: m[3]}.SeqID()
+	return fmt.Sprintf("%-90s %-10s %-5s", html.EscapeString(name)+"-"+id, parts[1], parts[2])
+}
+
+func annotateAlignmentHeader(line string, genomes GenomeCatalog) string {
+	m := blastAlignRegex.FindStringSubmatch(line)
+	if len(m) != 5 {
+		return line
+	}
+	name, ok := genomes.Name(m[1])
+	if !ok {
+		return line
+	}
+	ref := GeneRef{GenomeID: m[1], ContigID: m[2], GeneID: m[3]}
+	link := fmt.Sprintf("/cluster/heatmap/%s/%s/%s",
+		url.PathEscape(ref.GenomeID), url.PathEscape(ref.ContigID), url.PathEscape(ref.GeneID))
+	return fmt.Sprintf(">%s-%s%s <a href=\"%s\">View in gene table</a>",
+		html.EscapeString(name), ref.SeqID(), m[4], link)
 }

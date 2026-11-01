@@ -1,31 +1,25 @@
 package main
 
 import (
-	"database/sql"
 	"embed"
+	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
 	"mime"
 	"net/http"
 	"os"
-	"path"
-	"path/filepath"
-	"runtime"
 	"strings"
-	"time"
 
 	"github.com/joho/godotenv"
 
 	"github.com/yumyai/ggtable/logger"
-	"github.com/yumyai/ggtable/pkg/db"
+	"github.com/yumyai/ggtable/pkg/data"
 	"github.com/yumyai/ggtable/pkg/handler"
 	"github.com/yumyai/ggtable/pkg/model"
 	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	_ "modernc.org/sqlite"
 )
 
 // version is set at build time: go build -ldflags "-X main.version=3.0.5".
@@ -78,13 +72,8 @@ func ParseConfig() AppConfig {
 func main() {
 	cfg := ParseConfig()
 
-	// Optional: export flags back to env for downstream packages that read env
-	_ = os.Setenv("GGTABLE_DATA", cfg.DataDir)
-	_ = os.Setenv("GGTITLE", cfg.Title)
-	_ = os.Setenv("GGSUBTITLE", cfg.Subtitle)
-
 	if err := run(cfg); err != nil {
-		// If logger isn't up yet, print; else log and exit.
+		// The logger may not be up yet, and this is the one place the error is reported.
 		fmt.Fprintf(os.Stderr, "fatal: %v\n", err)
 		os.Exit(1)
 	}
@@ -102,48 +91,36 @@ func run(cfg AppConfig) error {
 	}
 	defer logger.Sync()
 
-	// Data paths
+	// Data: fails here, with the reason, if the data directory is incomplete or malformed.
 	if cfg.DataDir == "" {
-		logger.Warn("No data dir provided; falling back to ./data")
-		cfg.DataDir = "./data"
+		return errors.New("no data directory: pass -data or set GGTABLE_DATA")
 	}
-	sqlitePath := path.Join(cfg.DataDir, "db/gene_table.db")
-	protDB := path.Join(cfg.DataDir, "db/blastdb/genetable_genes_prot")
-	nuclDB := path.Join(cfg.DataDir, "db/blastdb/genetable_genes_nucl")
-	genomeDB := path.Join(cfg.DataDir, "db/blastdb/genetable_genomes")
-
-	// DB connect
-	// FIX: This create a new sqlite3 database if it does not exists.
-	// it should be an error instead.
-
-	// NOTE: Also, this part should be move into NewGeneClusterDB
-	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(10000)&_pragma=synchronous(NORMAL)", sqlitePath)
-	dbConn, err := sql.Open("sqlite", dsn)
+	store, err := data.Open(cfg.DataDir)
 	if err != nil {
-		logger.Fatal("Cannot connect to database", zap.String("DB_LOC", sqlitePath), zap.Error(err))
-		return err
+		return fmt.Errorf("cannot use data directory %s: %w", cfg.DataDir, err)
 	}
+	defer store.Close()
 
-	dbConn.SetMaxOpenConns(10)
-	dbConn.SetMaxIdleConns(5)
-	dbConn.SetConnMaxLifetime(3 * time.Minute)
-
-	gcdb := db.NewGeneClusterDB(dbConn, &db.SequenceDB{
-		ProtDB:   protDB,
-		NuclDB:   nuclDB,
-		GenomeDB: genomeDB,
-	})
+	genomes := store.Genomes
+	if cfg.Sorted != "" {
+		var unknown []string
+		genomes, unknown = genomes.Reorder(strings.Split(cfg.Sorted, ","))
+		if len(unknown) > 0 {
+			logger.Warn("GGSORTED lists genomes that are not in genome_info; ignoring them", zap.Strings("unknown", unknown))
+		}
+		logger.Info("Using GGSORTED genome order", zap.Int("genomes", len(genomes.IDs())))
+	}
 
 	appConfig := &handler.AppContext{
-		GCDB:         gcdb,
-		BlastManager: db.NewBlastManager(),
-		ProtBLASTDB:  protDB,
-		NuclBLASTDB:  nuclDB,
+		Clusters:     store.Clusters,
+		Seqs:         store.Seqs,
+		Genomes:      genomes,
+		BlastManager: model.NewBlastManager(),
 		Site:         render.SiteInfo{Title: cfg.Title, Subtitle: cfg.Subtitle},
 	}
 
 	logger.Info("Start", zap.String("Version", cfg.Version))
-	logger.Info("Open database", zap.String("DB_LOC", sqlitePath))
+	logger.Info("Opened data directory", zap.String("dir", cfg.DataDir), zap.Int("genomes", len(genomes.IDs())))
 	logger.Info("App title", zap.String("title", cfg.Title), zap.String("subtitle", cfg.Subtitle))
 
 	// Router
@@ -152,23 +129,10 @@ func run(cfg AppConfig) error {
 		return err
 	}
 
-	// Initialize header map from genome_id to full name
-	if err := model.InitMapHeader(dbConn); err != nil {
-		logger.Fatal("Cannot init header", zap.String("MAP_HEADER_ERR", err.Error()))
-		return err
-	}
-	if cfg.Sorted != "" {
-		// Split by comma
-		sortedIDs := []string{}
-		sortedIDs = append(sortedIDs, strings.Split(cfg.Sorted, ",")...)
-		model.SetGenomeID(sortedIDs)
-		logger.Info("Using manually sorted HEADER with length", zap.Int("len", len(sortedIDs)))
-	}
 	// Serve
 	logger.Info("Server starting", zap.String("addr", cfg.Addr))
-	if httpErr := http.ListenAndServe(cfg.Addr, mux); httpErr != nil {
-		logger.Error("Error starting server", zap.String("error", httpErr.Error()))
-		return httpErr
+	if err := http.ListenAndServe(cfg.Addr, mux); err != nil {
+		return fmt.Errorf("serve on %s: %w", cfg.Addr, err)
 	}
 	return nil
 }
@@ -201,8 +165,6 @@ func NewRouter(appConfig *handler.AppContext) *http.ServeMux {
 	mux.HandleFunc("GET /sequence/by-gene", appConfig.GetGeneSequenceHandler)
 	mux.HandleFunc("GET /sequence/by-region", appConfig.GetRegionSequenceHandler)
 	mux.HandleFunc("GET /sequence/by-cluster", appConfig.GetSequenceByClusterIDHandler)
-
-	// setupSPA(mux) // optional
 
 	return mux
 }
@@ -238,23 +200,6 @@ func setupStaticFiles(mux *http.ServeMux, staticDir string) error {
 	}
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(files)))
 	return nil
-}
-
-func setupSPA(mux *http.ServeMux) {
-
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		logger.Error("Unable to get caller information")
-		return
-	}
-
-	projectPath := filepath.Dir(filename)
-	logger.Info("SPA is available in:", zap.String("Loc", projectPath))
-	// distDir := filepath.Join(projectPath, "../ggapp-react/dist")
-	distDir := "/workspaces/ggapp-react/dist"
-	logger.Info("Serving SPA from", zap.String("dir", distDir))
-	spa := http.FileServer(http.Dir(distDir))
-	mux.Handle("GET /v1/", http.StripPrefix("/v1/", spa))
 }
 
 // small helper

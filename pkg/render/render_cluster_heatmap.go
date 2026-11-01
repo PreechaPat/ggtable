@@ -199,7 +199,7 @@ func init() {
 }
 
 // RenderClusterStandaloneHeatmapPage renders the cluster heatmap without search/BLAST controls.
-func RenderClusterStandaloneHeatmapPage(w io.Writer, site SiteInfo, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) error {
-	data := buildClusterHeatmapPageData(site, rows, searchRequest, totalPage)
+func RenderClusterStandaloneHeatmapPage(w io.Writer, site SiteInfo, genomes model.GenomeCatalog, rows []*model.Cluster, searchRequest model.ClusterSearchRequest, totalPage int) error {
+	data := buildClusterHeatmapPageData(site, genomes, rows, searchRequest, totalPage)
 	return clusterPageTemplate.Execute(w, data)
 }
