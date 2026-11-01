@@ -102,14 +102,3 @@ func TestRoutes_StaticETag(t *testing.T) {
 		t.Errorf("revalidation: status %d, %d bytes; want 304 and no body", rr.Code, rr.Body.Len())
 	}
 }
-
-func TestRoutes_GzipPages(t *testing.T) {
-	h := sqlOnlyRoutes(t)
-	req := httptest.NewRequest("GET", "/", nil)
-	req.Header.Set("Accept-Encoding", "gzip")
-	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, req)
-	if rr.Code != 200 || rr.Header().Get("Content-Encoding") != "gzip" {
-		t.Errorf("main page: status %d, encoding %q; want gzip", rr.Code, rr.Header().Get("Content-Encoding"))
-	}
-}

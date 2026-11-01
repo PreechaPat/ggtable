@@ -8,7 +8,7 @@ import (
 )
 
 // Routes returns the full HTTP handler: every route, /static/ served from
-// static, wrapped in request-ID, logging and gzip middleware.
+// static, wrapped in request-ID and logging middleware.
 func (app *AppContext) Routes(static fs.FS) http.Handler {
 	mux := http.NewServeMux()
 
@@ -35,5 +35,5 @@ func (app *AppContext) Routes(static fs.FS) http.Handler {
 
 	mux.Handle("GET /static/", http.StripPrefix("/static/", newStaticHandler(static)))
 
-	return middle.RequestID(middle.Logging(middle.Gzip(mux)))
+	return middle.RequestID(middle.Logging(mux))
 }
