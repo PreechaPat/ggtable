@@ -12,7 +12,7 @@ import (
 
 // TestRealData runs the data layer against a real ggprep/ggorigin build: the
 // directory in $GGTABLE_TEST_DATA, else test_data/pins6/output (gitignored,
-// built by test_data/pins6/build.sh). It skips when neither exists.
+// built by scripts/build-test-data.sh). It skips when neither exists.
 func TestRealData(t *testing.T) {
 	testdb.RequireBlast(t)
 	dir := os.Getenv("GGTABLE_TEST_DATA")
