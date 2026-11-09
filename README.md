@@ -27,6 +27,15 @@ docker run -p 8080:8080 \
 
 Open http://localhost:8080. The image has no settings built in; pass them at run time with `--env-file` (here the PINS Table's `pins.env`, or your own file) or `-e GGTITLE=...`. Leave values unquoted in that file: Docker keeps quotes as part of the value. To build the image yourself instead, run `docker build . -t ggtable` in the repo root and use `ggtable` as the image name.
 
+On a server, run it in the background, mount the data read-only, and pin an image tag (`sha-<commit>` or a version) rather than `latest`:
+
+```bash
+docker run -d --name ggtable --restart unless-stopped -p 80:8080 \
+  --mount type=bind,source=/srv/ggtable/data,target=/data,readonly \
+  --env-file /srv/ggtable/pins.env \
+  ghcr.io/preechapat/ggtable:sha-bd40cbcdf5
+```
+
 Without Docker, from the repo root:
 
 ```bash
