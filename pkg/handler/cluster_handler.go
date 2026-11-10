@@ -49,16 +49,7 @@ func (appConfig *AppContext) ClusterHeatmapPage(w http.ResponseWriter, r *http.R
 
 	// Search request is used for rendering only, no query involve here.
 	// Allow optional color mode from query with canonicalization
-	colorByRaw := r.URL.Query().Get("color_by")
-	switch colorByRaw {
-	case "gene_copy_number", "copy_number", "copies", "copy", "":
-		colorByRaw = "gene_copy_number"
-	case "max_gene_completeness", "max_completeness", "completeness":
-		colorByRaw = "max_gene_completeness"
-	default:
-		colorByRaw = "gene_copy_number"
-	}
-	colorBy := colorByRaw
+	colorBy := parseColorBy(r.URL.Query().Get("color_by"))
 
 	// Allow only selected genome IDs (defaults to all)
 	includeGenome := []string{}

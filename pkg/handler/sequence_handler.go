@@ -80,35 +80,17 @@ func (appConfig *AppContext) GetSequenceByClusterIDHandler(w http.ResponseWriter
 		return
 	}
 
-	cluster, err := appConfig.Clusters.Cluster(r.Context(), clusterID)
+	fasta, err := model.ClusterFASTA(r.Context(), appConfig.Clusters, appConfig.Seqs, clusterID, isProt)
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			writeSequenceError(w, fmt.Sprintf("cluster %q not found", clusterID))
 			return
 		}
-		logger.Error("failed to load cluster", zap.String("cluster_id", clusterID), zap.Error(err))
-		writeSequenceError(w, "failed to load cluster")
+		logger.Error("failed to fetch cluster sequences", zap.String("cluster_id", clusterID), zap.Error(err))
+		writeSequenceError(w, "failed to fetch cluster sequences")
 		return
 	}
-
-	genes, err := appConfig.Seqs.Genes(r.Context(), cluster.GeneRefs(), isProt)
-	if err != nil {
-		logger.Error("failed to fetch cluster genes", zap.String("cluster_id", clusterID), zap.Error(err))
-		writeSequenceError(w, "failed to fetch gene sequences")
-		return
-	}
-	var regions []byte
-	if !isProt {
-		regions, err = appConfig.Seqs.Regions(r.Context(), cluster.RegionRefs())
-		if err != nil {
-			logger.Error("failed to fetch cluster regions", zap.String("cluster_id", clusterID), zap.Error(err))
-			writeSequenceError(w, "failed to fetch region sequences")
-			return
-		}
-	}
-
-	fmt.Fprint(w, model.LabelFasta(genes, appConfig.Genomes))
-	fmt.Fprint(w, model.LabelFasta(regions, appConfig.Genomes))
+	fmt.Fprint(w, model.LabelFasta(fasta, appConfig.Genomes))
 }
 
 // writeSequenceError sends msg as JSON; details stay in the server log.

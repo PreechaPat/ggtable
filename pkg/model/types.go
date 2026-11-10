@@ -1,5 +1,6 @@
 // Package model holds the domain types and pure rules of the gene table.
-// It does no I/O: the SQLite and BLAST stores live in pkg/data and return these types.
+// It defines storage contracts and domain operations; concrete SQLite and BLAST
+// implementations live in pkg/data.
 package model
 
 import (
@@ -9,6 +10,9 @@ import (
 
 // ErrNotFound is returned (wrapped) by stores when a requested record does not exist.
 var ErrNotFound = errors.New("not found")
+
+// ErrInvalidSearch identifies unsupported search or sort requests.
+var ErrInvalidSearch = errors.New("invalid search")
 
 type Region struct {
 	GenomeID string `json:"genome_id"`

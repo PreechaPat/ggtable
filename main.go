@@ -27,12 +27,6 @@ import (
 // version is set at build time: go build -ldflags "-X main.version=3.0.5".
 var version = "dev"
 
-var (
-	ggtable_data     string
-	ggtable_title    string
-	ggtable_subtitle string
-)
-
 // App configuration parsed from flags/env
 type AppConfig struct {
 	Version  string

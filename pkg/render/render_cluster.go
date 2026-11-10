@@ -4,9 +4,8 @@ package render
 
 import (
 	"fmt"
+	"html/template"
 	"io"
-	"math"
-	"text/template"
 
 	"github.com/yumyai/ggtable/logger"
 	"github.com/yumyai/ggtable/pkg/model"
@@ -32,7 +31,7 @@ func init() {
 		<h2>Resources</h2>
 		    <ul>
 				<li>[<a href="/sequence/by-cluster?cluster_id={{ .Cluster.ClusterProperty.ClusterID }}&is_prot=false" target="_blank">FNA</a>]All nucleotide sequences in FASTA format</li>
-				<li>[<a href="/sequence/by-cluster?cluster_id={{ .Cluster.ClusterProperty.ClusterID }}&is_prot=true" target-"_blank">FAA</a>]All protein sequences in FASTA format</li>
+				<li>[<a href="/sequence/by-cluster?cluster_id={{ .Cluster.ClusterProperty.ClusterID }}&is_prot=true" target="_blank">FAA</a>]All protein sequences in FASTA format</li>
 			</ul>
 		<script>
 		</script>
@@ -47,8 +46,8 @@ func init() {
 		<div>
 			<p>This cluster consists of {{ len $.Cluster.Genomes }} genomes.</p>
 			<p>Function: {{ $.Cluster.ClusterProperty.FunctionDescription }}</p>
-			<p>Consists of {{ $.TotalGenes }} gene members and {{ $.TotalRegions }} homologous genomic regions from {{ len $.Cluster.Genomes }} / 101 genomes.</p>
-			<p>Representative gene: {{ $.RepresentativeGene.GeneID }} ({{ calculateGeneLength $.RepresentativeGene.Region.End $.RepresentativeGene.Region.Start }} bp) [ {{genomeLabel $.RepresentativeGene.Region.GenomeID $.GenomeNames}}]</p>
+			<p>Consists of {{ $.TotalGenes }} gene members and {{ $.TotalRegions }} homologous genomic regions from {{ len $.Cluster.Genomes }} / {{ .TotalGenomes }} genomes.</p>
+			{{ with $.RepresentativeGene }}<p>Representative gene: {{ $.RepresentativeGene.GeneID }} ({{ calculateGeneLength $.RepresentativeGene.Region.End $.RepresentativeGene.Region.Start }} bp) [ {{genomeLabel $.RepresentativeGene.Region.GenomeID $.GenomeNames}}]</p>{{ end }}
 		</div>
 	  {{end}}
 	`
@@ -124,7 +123,7 @@ func init() {
 			_, ok := m[k]
 			return ok
 		},
-		"calculateGeneLength": func(a, b int) int { return int(math.Abs(float64(a - b + 1))) },
+		"calculateGeneLength": func(a, b int) int { return (model.Region{Start: b, End: a}).Length() },
 		"genomeLabel": func(genomeID string, names map[string]string) string {
 			if names == nil {
 				return genomeID
@@ -143,62 +142,27 @@ func init() {
 
 }
 
-// Longest gene would be used as representative gene
-func getLongestGene(cluster *model.Cluster) *model.Gene {
-
-	var longestGene *model.Gene
-	maxLength := 0
-
-	for _, genome := range cluster.Genomes {
-		for _, gene := range genome.Genes {
-			if gene.Region != nil {
-				length := int(math.Abs(float64(gene.Region.End - gene.Region.Start)))
-				if length > maxLength {
-					// Found a longer gene, update the longestGene and maxLength
-					longestGene = gene
-					maxLength = length
-				}
-			}
-		}
-	}
-
-	return longestGene
-}
-
 // RenderClusterTablePage renders a detailed HTML table for a cluster.
 func RenderClusterTablePage(w io.Writer, genomes model.GenomeCatalog, cluster *model.Cluster) error {
 
 	logger.Info("Rendering cluster page on", zap.String("cluster-id", cluster.ClusterProperty.ClusterID))
 
-	// Count stats
-	totalGenes := 0
-	totalRegions := 0
-	genomeCount := 0
-
-	// Count genes and regions in each genome
-	for _, genome := range cluster.Genomes {
-		if len(genome.Genes) > 0 || len(genome.Regions) > 0 {
-			genomeCount++ // Count genomes with genes or regions
-		}
-		totalGenes += len(genome.Genes)     // Count total number of gene members
-		totalRegions += len(genome.Regions) // Count total number of regions
-	}
-
-	// Find representative gene
-	rep_gene := getLongestGene(cluster)
+	summary := cluster.Summary()
 
 	data := struct {
 		Cluster            *model.Cluster
 		RepresentativeGene *model.Gene
 		GenomeNames        map[string]string
+		TotalGenomes       int
 		TotalGenes         int
 		TotalRegions       int
 	}{
 		Cluster:            cluster,
-		RepresentativeGene: rep_gene,
+		RepresentativeGene: summary.RepresentativeGene,
 		GenomeNames:        genomes.Names(),
-		TotalGenes:         totalGenes,
-		TotalRegions:       totalRegions,
+		TotalGenomes:       len(genomes.IDs()),
+		TotalGenes:         summary.TotalGenes,
+		TotalRegions:       summary.TotalRegions,
 	}
 
 	return cluster_page_template.Execute(w, data)

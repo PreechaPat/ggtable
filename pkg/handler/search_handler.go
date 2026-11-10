@@ -8,17 +8,10 @@ import (
 	"strings"
 
 	"github.com/yumyai/ggtable/logger"
-	"github.com/yumyai/ggtable/pkg/data/sqldb"
 	"github.com/yumyai/ggtable/pkg/model"
 	"github.com/yumyai/ggtable/pkg/render"
 	"go.uber.org/zap"
 )
-
-// TODO:
-// Doing a full json validations
-// https://www.alexedwards.net/blog/how-to-properly-parse-a-json-request-body
-// Organize the DB connection
-// https://www.alexedwards.net/blog/organising-database-access
 
 const (
 	defaultPageSize   = 100
@@ -45,6 +38,16 @@ func parsePositiveIntFallback(v string, fallback int) int {
 		return fallback
 	}
 	return num
+}
+
+// parseColorBy keeps color aliases consistent across all heatmap routes.
+func parseColorBy(raw string) string {
+	switch raw {
+	case "max_gene_completeness", "max_completeness", "completeness":
+		return "max_gene_completeness"
+	default:
+		return "gene_copy_number"
+	}
 }
 
 func normalizeOrderDir(raw string) string {
@@ -88,17 +91,7 @@ func (appConfig *AppContext) ClusterSearchPage(w http.ResponseWriter, r *http.Re
 	// Color selection canonicalization
 	// Accepted: gene_copy_number | max_gene_completeness
 	// Backward-compat: copy -> gene_copy_number, completeness -> max_gene_completeness
-	colorByRaw := r.URL.Query().Get("color_by")
-	switch colorByRaw {
-	case "gene_copy_number", "copy_number", "copies", "copy", "":
-		// default to gene_copy_number if empty
-		colorByRaw = "gene_copy_number"
-	case "max_gene_completeness", "max_completeness", "completeness":
-		colorByRaw = "max_gene_completeness"
-	default:
-		colorByRaw = "gene_copy_number"
-	}
-	colorBy := colorByRaw
+	colorBy := parseColorBy(r.URL.Query().Get("color_by"))
 
 	// Include the following genome only
 	var includeGenome []string
@@ -109,17 +102,6 @@ func (appConfig *AppContext) ClusterSearchPage(w http.ResponseWriter, r *http.Re
 			includeGenome = append(includeGenome, strippedKey)
 		}
 	}
-
-	// // Only include those cluster with following genes
-	// var reqGeneFromGenome []string
-	// // Iterate over query parameters
-	// for key := range r.URL.Query() {
-	// 	if strings.HasPrefix(key, "gn_") {
-	// 		// Strip "gn_" prefix and append to the array
-	// 		strippedKey := strings.TrimPrefix(key, "gn_")
-	// 		reqGeneFromGenome = append(reqGeneFromGenome, strippedKey)
-	// 	}
-	// }
 
 	logger.Info("Running searchpage",
 		zap.String("searchterm", searchTerm),
@@ -140,7 +122,6 @@ func (appConfig *AppContext) ClusterSearchPage(w http.ResponseWriter, r *http.Re
 		Page_Size:    pageSize,
 		Genome_IDs:   includeGenome,
 		Color_By:     colorBy,
-		// RequireGenesFromGenomes: reqGeneFromGenome,
 	}
 
 	// A failed search still renders the page (with no rows), so the user can
@@ -150,7 +131,7 @@ func (appConfig *AppContext) ClusterSearchPage(w http.ResponseWriter, r *http.Re
 	if err == nil {
 		rowNum, err = appConfig.Clusters.CountSearch(r.Context(), search_request)
 	}
-	if errors.Is(err, sqldb.ErrInvalidSearch) {
+	if errors.Is(err, model.ErrInvalidSearch) {
 		logger.Debug("invalid search", zap.Error(err))
 		rows = nil
 	} else if err != nil {
@@ -178,16 +159,7 @@ func (appConfig *AppContext) MainPage(w http.ResponseWriter, r *http.Request) {
 	orderByF, orderDir := parseSort(r.URL.Query())
 
 	// Color selection canonicalization
-	colorByRaw := r.URL.Query().Get("color_by")
-	switch colorByRaw {
-	case "gene_copy_number", "copy_number", "copies", "copy", "":
-		colorByRaw = "gene_copy_number"
-	case "max_gene_completeness", "max_completeness", "completeness":
-		colorByRaw = "max_gene_completeness"
-	default:
-		colorByRaw = "gene_copy_number"
-	}
-	colorBy := colorByRaw
+	colorBy := parseColorBy(r.URL.Query().Get("color_by"))
 
 	logger.Info("Running mainpage",
 		zap.String("url", r.URL.Path),

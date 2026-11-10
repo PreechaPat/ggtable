@@ -49,7 +49,7 @@ func NewBlastManager() *BlastManager {
 }
 
 // NewJob registers a queued job for the provided BLAST type and cleans up old jobs.
-func (m *BlastManager) NewJob(blastType string) *BlastJob {
+func (m *BlastManager) NewJob(blastType string) BlastJob {
 	job := &BlastJob{
 		ID:        generateJobID(),
 		BlastType: blastType,
@@ -70,7 +70,7 @@ func (m *BlastManager) NewJob(blastType string) *BlastJob {
 		m.jobOrder = m.jobOrder[1:]
 	}
 
-	return job
+	return *job
 }
 
 // SetRunning marks the job as running.

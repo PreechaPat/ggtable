@@ -11,7 +11,7 @@ import (
 
 // ErrInvalidSearch is wrapped by search errors caused by the request itself
 // (unknown search or sort field), as opposed to database failures.
-var ErrInvalidSearch = fmt.Errorf("invalid search")
+var ErrInvalidSearch = model.ErrInvalidSearch
 
 // MainPage returns one page of all clusters, sorted by req.Order_By and req.Order_Dir.
 func (db *DB) MainPage(ctx context.Context, req model.ClusterSearchRequest) ([]*model.Cluster, error) {

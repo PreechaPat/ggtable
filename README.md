@@ -172,3 +172,5 @@ At startup `pkg/data` checks the data directory (layout, SQLite tables and colum
 Issues and PRs are welcome at https://github.com/PreechaPat/ggtable. Please use [Conventional Commits](https://www.conventionalcommits.org/) and run `go vet ./...` first.
 
 MIT licensed, see [LICENSE](LICENSE). Maintainer: preecha.pat@mahidol.ac.th.
+
+See [MVC and storage architecture](docs/ARCHITECTURE.md) for package responsibilities and testing guidance.
