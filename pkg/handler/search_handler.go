@@ -103,7 +103,7 @@ func (appConfig *AppContext) ClusterSearchPage(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	logger.Info("Running searchpage",
+	logger.Debug("Running searchpage",
 		zap.String("searchterm", searchTerm),
 		zap.String("url", r.URL.Path),
 		zap.Int("Page", currentPage),
@@ -161,7 +161,7 @@ func (appConfig *AppContext) MainPage(w http.ResponseWriter, r *http.Request) {
 	// Color selection canonicalization
 	colorBy := parseColorBy(r.URL.Query().Get("color_by"))
 
-	logger.Info("Running mainpage",
+	logger.Debug("Running mainpage",
 		zap.String("url", r.URL.Path),
 		zap.Int("page", pageNum),
 		zap.Int("page_size", PAGE_SIZE),

@@ -145,7 +145,7 @@ func init() {
 // RenderClusterTablePage renders a detailed HTML table for a cluster.
 func RenderClusterTablePage(w io.Writer, genomes model.GenomeCatalog, cluster *model.Cluster) error {
 
-	logger.Info("Rendering cluster page on", zap.String("cluster-id", cluster.ClusterProperty.ClusterID))
+	logger.Debug("Rendering cluster page on", zap.String("cluster-id", cluster.ClusterProperty.ClusterID))
 
 	summary := cluster.Summary()
 

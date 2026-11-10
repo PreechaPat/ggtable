@@ -63,6 +63,6 @@ func init() {
 
 // Function to render an HTML page with a table
 func RenderBLASTPage(w io.Writer, data BlastPageData) error {
-	logger.Info("Rendering blast page", zap.String("job_id", data.JobID), zap.String("status", data.Status))
+	logger.Debug("Rendering blast page", zap.String("job_id", data.JobID), zap.String("status", data.Status))
 	return blast_page_template.Execute(w, data)
 }

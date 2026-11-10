@@ -36,6 +36,8 @@ docker run -d --name ggtable --restart unless-stopped -p 80:8080 \
   ghcr.io/preechapat/ggtable:sha-bd40cbcdf5
 ```
 
+By default, logs show startup information, warnings, and errors. Routine HTTP requests, searches, and page rendering are logged only with `-v`. HTTP 4xx responses are warnings and 5xx responses are errors, including failed health checks. To enable verbose logging in Docker, append `/app/ggtable -v` after the image name.
+
 Without Docker, from the repo root:
 
 ```bash

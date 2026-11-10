@@ -35,8 +35,8 @@ func RequestID(next http.Handler) http.Handler {
 	})
 }
 
-// Logging logs one line per request after it is served. Health checks are
-// logged at debug level so the container healthcheck does not flood the log.
+// Logging records routine requests at debug level and failed requests at
+// warning (4xx) or error (5xx) level, including failed health checks.
 func Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -50,10 +50,13 @@ func Logging(next http.Handler) http.Handler {
 			zap.Duration("duration", time.Since(start)),
 			zap.String("request_id", w.Header().Get(RequestIDHeader)),
 		}
-		if r.URL.Path == "/api/v1/health" {
+		switch {
+		case rec.status >= http.StatusInternalServerError:
+			logger.Error("HTTP request", fields...)
+		case rec.status >= http.StatusBadRequest:
+			logger.Warn("HTTP request", fields...)
+		default:
 			logger.Debug("HTTP request", fields...)
-			return
 		}
-		logger.Info("HTTP request", fields...)
 	})
 }
